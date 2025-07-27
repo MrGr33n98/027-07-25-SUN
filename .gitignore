@@ -1,0 +1,50 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# Next.js specific build output and cache
+.next/
+out/ # If you use `next export`
+
+# Environment variables (CRUCIAL for security)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.example # You might want to include this if it contains safe examples, but generally .env files are ignored.
+             # If .env.example contains sensitive info, ignore it. If it's a template, keep it tracked.
+
+# Logs and temporary files
+*.log
+*.tmp
+tmp/
+
+# IDEs and Editors
+.vscode/    # Visual Studio Code
+.idea/      # IntelliJ IDEA / WebStorm
+*.sublime-project
+*.sublime-workspace
+.DS_Store   # macOS
+Thumbs.db   # Windows
+
+# Prisma generated client
+# By default, prisma client is generated into node_modules/.prisma/client
+# If you configure it to output elsewhere, add that path here.
+prisma/generated/
+
+# Production build artifacts (if applicable)
+dist/
+build/
+
+# Specific files you might want to ignore based on your list
+# These look like local scripts or analysis files that don't need to be in Git.
+create-admin.js
+create-admin.sql
+create-certifications.js
+create-notifications.js
+create-sample-data.js
+analise.md
