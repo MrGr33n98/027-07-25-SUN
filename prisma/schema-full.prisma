@@ -1,0 +1,156 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  image     String?
+  role      UserRole @default(CUSTOMER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  company CompanyProfile?
+  reviews Review[]
+
+  @@map("users")
+}
+
+model CompanyProfile {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  description      String
+  logo             String?
+  banner           String?
+  rating           Float    @default(0)
+  reviewCount      Int      @default(0)
+  location         String
+  city             String
+  state            String
+  verified         Boolean  @default(false)
+  phone            String?
+  email            String?
+  website          String?
+  whatsapp         String?
+  instagram        String?
+  linkedin         String?
+  specialties      String[]
+  certifications   String[]
+  yearsExperience  Int      @default(0)
+  projectsCompleted Int     @default(0)
+  teamSize         String?
+  serviceAreas     String[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String    @unique
+  products  Product[]
+  reviews   Review[]
+  projects  Project[]
+
+  @@map("company_profiles")
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  name          String
+  description   String
+  price         Decimal
+  originalPrice Decimal?
+  power         Int?            // Watts
+  efficiency    Float?          // Percentage
+  warranty      Int?            // Years
+  inStock       Boolean         @default(true)
+  images        String[]
+  category      ProductCategory
+  brand         String?
+  model         String?
+  specifications Json?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  // Relations
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  @@map("products")
+}
+
+model Review {
+  id               String   @id @default(cuid())
+  rating           Int      // 1-5
+  title            String
+  comment          String
+  customerName     String
+  customerLocation String
+  projectType      String
+  installationDate DateTime?
+  verified         Boolean  @default(false)
+  helpful          Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+
+  @@map("reviews")
+}
+
+model Project {
+  id             String      @id @default(cuid())
+  title          String
+  description    String
+  images         String[]
+  location       String
+  power          Float       // kWp
+  completionDate DateTime
+  projectType    ProjectType
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  // Relations
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  @@map("projects")
+}
+
+enum UserRole {
+  CUSTOMER
+  COMPANY
+  ADMIN
+}
+
+enum ProductCategory {
+  PAINEL_SOLAR
+  INVERSOR
+  BATERIA
+  ESTRUTURA
+  CABO
+  ACESSORIO
+  KIT_COMPLETO
+}
+
+enum ProjectType {
+  RESIDENCIAL
+  COMERCIAL
+  INDUSTRIAL
+  RURAL
+  PUBLICO
+}

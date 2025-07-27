@@ -1,0 +1,465 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          UserRole  @default(CUSTOMER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts Account[]
+  sessions Session[]
+  company  CompanyProfile?
+  reviews  Review[]
+  notifications Notification[]
+  sentMessages Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+  conversations Conversation[]
+  favoriteCompanies Favorite[] @relation("UserFavorites")
+  favoriteProducts ProductFavorite[]
+  quotes Quote[]
+  appointments Appointment[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model CompanyProfile {
+  id               String   @id @default(cuid())
+  name             String
+  slug             String   @unique
+  description      String
+  logo             String?
+  banner           String?
+  rating           Float    @default(0)
+  reviewCount      Int      @default(0)
+  location         String?
+  city             String?
+  state            String?
+  verified         Boolean  @default(false)
+  phone            String?
+  email            String?
+  website          String?
+  whatsapp         String?
+  instagram        String?
+  linkedin         String?
+  specialties      String[] @default([])
+  yearsExperience  Int      @default(0)
+  projectsCompleted Int     @default(0)
+  teamSize         String?
+  serviceAreas     String[] @default([])
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String    @unique
+  products  Product[]
+  reviews   Review[]
+  projects  Project[]
+  leads     Lead[]
+  favorites Favorite[]
+  quotes    Quote[]
+  appointments Appointment[]
+  companyCertifications CompanyCertification[]
+
+  @@map("company_profiles")
+}
+
+model Product {
+  id            String          @id @default(cuid())
+  name          String
+  description   String
+  price         Decimal
+  originalPrice Decimal?
+  power         Int?            // Watts
+  efficiency    Float?          // Percentage
+  warranty      Int?            // Years
+  inStock       Boolean         @default(true)
+  images        String[]
+  category      ProductCategory
+  brand         String?
+  model         String?
+  specifications Json?
+  status        ModerationStatus @default(PENDING)
+  moderatedAt   DateTime?
+  moderatedBy   String?
+  rejectionReason String?
+  flagReason    String?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  favorites ProductFavorite[]
+
+  @@map("products")
+}
+
+model Review {
+  id               String   @id @default(cuid())
+  rating           Int      // 1-5
+  title            String
+  comment          String
+  customerName     String
+  customerLocation String
+  projectType      String
+  installationDate DateTime?
+  verified         Boolean  @default(false)
+  helpful          Int      @default(0)
+  status           ModerationStatus @default(PENDING)
+  moderatedAt      DateTime?
+  moderatedBy      String?
+  rejectionReason  String?
+  flagReason       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+
+  @@map("reviews")
+}
+
+model Project {
+  id             String      @id @default(cuid())
+  title          String
+  description    String
+  images         String[]
+  location       String
+  power          Float       // kWp
+  completionDate DateTime
+  projectType    ProjectType
+  client         String?
+  duration       String?
+  challenges     String?
+  solutions      String?
+  results        String?
+  status         ModerationStatus @default(PENDING)
+  moderatedAt    DateTime?
+  moderatedBy    String?
+  rejectionReason String?
+  flagReason     String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  @@map("projects")
+}
+
+model Lead {
+  id          String    @id @default(cuid())
+  name        String
+  email       String
+  phone       String
+  location    String
+  projectType String
+  budget      String?
+  message     String
+  status      LeadStatus @default(NEW)
+  source      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  quotes    Quote[]
+
+  @@map("leads")
+}
+
+model Quote {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  totalValue  Decimal
+  validUntil  DateTime
+  status      QuoteStatus @default(DRAFT)
+  items       QuoteItem[]
+  terms       String?
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  lead      Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  leadId    String?
+  user      User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userId    String?
+
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String  @id @default(cuid())
+  description String
+  quantity    Int
+  unitPrice   Decimal
+  totalPrice  Decimal
+  category    String?
+  
+  quote   Quote  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quoteId String
+
+  @@map("quote_items")
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  date        DateTime
+  duration    Int               @default(60) // minutes
+  location    String
+  status      AppointmentStatus @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  @@map("appointments")
+}
+
+model Certification {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  icon        String?
+  color       String   @default("#3B82F6")
+  category    String
+  requirements String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  companies CompanyCertification[]
+
+  @@map("certifications")
+}
+
+model CompanyCertification {
+  id            String    @id @default(cuid())
+  issuedAt      DateTime  @default(now())
+  expiresAt     DateTime?
+  verifiedAt    DateTime?
+  verifiedBy    String?
+  status        CertificationStatus @default(PENDING)
+  documentUrl   String?
+  notes         String?
+
+  company         CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId       String
+  certification   Certification  @relation(fields: [certificationId], references: [id], onDelete: Cascade)
+  certificationId String
+
+  @@unique([companyId, certificationId])
+  @@map("company_certifications")
+}
+
+enum UserRole {
+  CUSTOMER
+  COMPANY
+  ADMIN
+}
+
+enum ProductCategory {
+  PAINEL_SOLAR
+  INVERSOR
+  BATERIA
+  ESTRUTURA
+  CABO
+  ACESSORIO
+  KIT_COMPLETO
+}
+
+enum ProjectType {
+  RESIDENCIAL
+  COMERCIAL
+  INDUSTRIAL
+  RURAL
+  PUBLICO
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  PROPOSAL_SENT
+  NEGOTIATING
+  CLOSED
+  LOST
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  FLAGGED
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType
+  read      Boolean  @default(false)
+  data      Json?    // Additional data for the notification
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  @@map("notifications")
+}
+
+model Message {
+  id        String      @id @default(cuid())
+  content   String
+  read      Boolean     @default(false)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  sender     User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId   String
+  receiver   User   @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiverId String
+
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+
+  @@map("messages")
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants User[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  user      User           @relation("UserFavorites", fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  company   CompanyProfile @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  companyId String
+
+  @@unique([userId, companyId])
+  @@map("favorites")
+}
+
+model ProductFavorite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+
+  @@unique([userId, productId])
+  @@map("product_favorites")
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  VIEWED
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  RESCHEDULED
+}
+
+enum CertificationStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  REVOKED
+}
+
+enum NotificationType {
+  LEAD_RECEIVED
+  PRODUCT_APPROVED
+  PRODUCT_REJECTED
+  PROJECT_APPROVED
+  PROJECT_REJECTED
+  REVIEW_RECEIVED
+  MESSAGE_RECEIVED
+  QUOTE_RECEIVED
+  QUOTE_ACCEPTED
+  QUOTE_REJECTED
+  APPOINTMENT_SCHEDULED
+  APPOINTMENT_CONFIRMED
+  APPOINTMENT_CANCELLED
+  SYSTEM_UPDATE
+}
