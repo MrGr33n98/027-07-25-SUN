@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import Image from 'next/image'
 import {
   MapPin,
   Star,
@@ -37,6 +38,8 @@ interface CompanyHeroStaticProps {
     specialties: string[]
     certifications: string[]
     serviceAreas: string[]
+    logo?: string
+    banner?: string
   }
 }
 
@@ -75,20 +78,49 @@ export function CompanyHeroStatic({ company }: CompanyHeroStaticProps) {
     <>
       {/* Banner Hero */}
       <section className="relative h-80 bg-gradient-to-r from-orange-600 via-orange-500 to-green-500 overflow-hidden">
+        {/* Background Image */}
+        {company.banner && (
+          <div className="absolute inset-0">
+            <Image
+              src={company.banner}
+              alt={`${company.name} banner`}
+              fill
+              className="object-cover"
+              priority
+              sizes="100vw"
+            />
+            <div className="absolute inset-0 bg-black bg-opacity-40"></div>
+          </div>
+        )}
+        
         {/* Background Pattern */}
-        <div className="absolute inset-0 bg-black bg-opacity-20"></div>
-        <div className="absolute inset-0" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }}></div>
+        {!company.banner && (
+          <>
+            <div className="absolute inset-0 bg-black bg-opacity-20"></div>
+            <div className="absolute inset-0" style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.1'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+            }}></div>
+          </>
+        )}
 
         {/* Content */}
         <div className="relative container mx-auto px-4 h-full flex items-center">
           <div className="max-w-4xl">
             <div className="flex items-center mb-3">
-              <div className="w-14 h-14 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-5">
-                <span className="text-xl font-bold text-white">
-                  {company.name.charAt(0)}
-                </span>
+              <div className="w-14 h-14 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center mr-5 overflow-hidden">
+                {company.logo ? (
+                  <Image
+                    src={company.logo}
+                    alt={`${company.name} logo`}
+                    width={56}
+                    height={56}
+                    className="object-contain"
+                  />
+                ) : (
+                  <span className="text-xl font-bold text-white">
+                    {company.name.charAt(0)}
+                  </span>
+                )}
               </div>
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">
