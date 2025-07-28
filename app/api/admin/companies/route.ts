@@ -14,40 +14,52 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const q = searchParams.get('q')
-    const role = searchParams.get('role')
     const status = searchParams.get('status')
+    const verified = searchParams.get('verified')
 
     let where: any = {}
 
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
         { email: { contains: q, mode: 'insensitive' } },
+        { city: { contains: q, mode: 'insensitive' } },
       ]
-    }
-
-    if (role && role !== 'all') {
-      where.role = role
     }
 
     if (status && status !== 'all') {
       where.status = status
     }
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
+    if (verified && verified !== 'all') {
+      where.verified = verified === 'true'
+    }
+
+    const [companies, total] = await Promise.all([
+      prisma.companyProfile.findMany({
         where,
         include: {
-          companyProfile: {
+          user: {
             select: {
               name: true,
-              verified: true,
+              email: true,
+              status: true,
             }
           },
           _count: {
             select: {
-              appointments: true,
+              products: true,
               reviews: true,
+              appointments: true,
+            }
+          },
+          reviews: {
+            select: {
+              rating: true,
+            },
+            where: {
+              status: 'APPROVED'
             }
           }
         },
@@ -55,17 +67,31 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.user.count({ where })
+      prisma.companyProfile.count({ where })
     ])
 
+    // Calculate average rating for each company
+    const companiesWithRating = companies.map(company => {
+      const ratings = company.reviews.map(r => r.rating)
+      const averageRating = ratings.length > 0 
+        ? ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length 
+        : 0
+
+      return {
+        ...company,
+        averageRating,
+        reviews: undefined // Remove reviews array from response
+      }
+    })
+
     return NextResponse.json({
-      data: users,
+      data: companiesWithRating,
       total,
       page,
       totalPages: Math.ceil(total / limit),
     })
   } catch (error) {
-    console.error('Error fetching users:', error)
+    console.error('Error fetching companies:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

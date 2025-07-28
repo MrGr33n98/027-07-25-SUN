@@ -1,14 +1,16 @@
+import { notFound } from 'next/navigation'
+
 interface CompanyPageProps {
   params: { slug: string }
 }
 
-export default function CompanyPage({ params }: CompanyPageProps) {
-  console.log('🚀 CompanyPage iniciada com slug:', params.slug)
-  
-  // Mock data simples
-  const mockData = {
+async function getCompany(slug: string) {
+  // Mock data for testing
+  const mockCompanies: { [key: string]: any } = {
     'solar-tech-brasil': {
+      id: 'mock-1',
       name: 'SolarTech Brasil',
+      slug: 'solar-tech-brasil',
       description: 'Especialistas em energia solar residencial e comercial.',
       city: 'São Paulo',
       state: 'SP',
@@ -20,19 +22,16 @@ export default function CompanyPage({ params }: CompanyPageProps) {
     }
   }
 
-  const company = mockData[params.slug as keyof typeof mockData]
-
-  if (!company) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
-          <p className="text-gray-600">Empresa não encontrada</p>
-          <p className="text-sm text-gray-500 mt-2">Slug: {params.slug}</p>
-        </div>
-      </div>
-    )
+  const mockCompany = mockCompanies[slug]
+  if (!mockCompany) {
+    notFound()
   }
+
+  return mockCompany
+}
+
+export default async function CompanyPage({ params }: CompanyPageProps) {
+  const company = await getCompany(params.slug)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -76,10 +75,6 @@ export default function CompanyPage({ params }: CompanyPageProps) {
             <button className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg font-medium">
               Solicitar Orçamento
             </button>
-          </div>
-
-          <div className="mt-4 text-xs text-gray-400">
-            Debug: Slug = {params.slug}
           </div>
         </div>
       </div>

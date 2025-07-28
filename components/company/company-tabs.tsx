@@ -207,7 +207,7 @@ export function CompanyTabs({ company }: CompanyTabsProps) {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Avaliação Média</span>
-                    <span className="font-medium">{company.rating.toFixed(1)} ⭐</span>
+                    <span className="font-medium">{(company.rating || 0).toFixed(1)} ⭐</span>
                   </div>
                 </div>
 

@@ -59,9 +59,9 @@ export function CompanyCard({ company }: CompanyCardProps) {
               </h3>
               <div className="flex items-center space-x-2 mb-2">
                 <div className="flex items-center">
-                  {renderStars(Math.floor(company.rating))}
+                  {renderStars(Math.floor(company.rating || 0))}
                   <span className="ml-2 text-sm text-gray-600">
-                    {formatRating(company.rating)} ({company.reviewCount} avaliações)
+                    {formatRating(company.rating || 0)} ({company.reviewCount || 0} avaliações)
                   </span>
                 </div>
               </div>
@@ -91,7 +91,7 @@ export function CompanyCard({ company }: CompanyCardProps) {
         <div className="grid grid-cols-3 gap-4 mb-4">
           <div className="text-center">
             <div className="text-lg font-semibold text-orange-500">
-              {company.yearsExperience}
+              {company.yearsExperience || 0}
             </div>
             <div className="text-xs text-gray-500">Anos</div>
           </div>
@@ -103,7 +103,7 @@ export function CompanyCard({ company }: CompanyCardProps) {
           </div>
           <div className="text-center">
             <div className="text-lg font-semibold text-orange-500">
-              {company.certifications.length}
+              {company.certifications?.length || 0}
             </div>
             <div className="text-xs text-gray-500">Certificações</div>
           </div>
@@ -116,7 +116,7 @@ export function CompanyCard({ company }: CompanyCardProps) {
 
         {/* Specialties Tags */}
         <div className="flex flex-wrap gap-2 mb-4">
-          {company.specialties.slice(0, 3).map((specialty, index) => (
+          {(company.specialties || []).slice(0, 3).map((specialty, index) => (
             <span 
               key={index} 
               className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full"
@@ -124,9 +124,9 @@ export function CompanyCard({ company }: CompanyCardProps) {
               {specialty}
             </span>
           ))}
-          {company.specialties.length > 3 && (
+          {(company.specialties?.length || 0) > 3 && (
             <span className="text-xs text-gray-500">
-              +{company.specialties.length - 3} mais
+              +{(company.specialties?.length || 0) - 3} mais
             </span>
           )}
         </div>

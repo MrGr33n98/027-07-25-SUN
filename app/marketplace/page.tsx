@@ -26,6 +26,9 @@ interface MarketplacePageProps {
   }
 }
 
+// ISR configuration for marketplace
+export const revalidate = 300 // Revalidate every 5 minutes
+
 export default function MarketplacePage({ searchParams }: MarketplacePageProps) {
   return (
     <div className="min-h-screen flex flex-col">

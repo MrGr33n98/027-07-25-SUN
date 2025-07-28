@@ -14,58 +14,73 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const q = searchParams.get('q')
-    const role = searchParams.get('role')
     const status = searchParams.get('status')
+    const priority = searchParams.get('priority')
 
     let where: any = {}
 
     if (q) {
       where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
+        { subject: { contains: q, mode: 'insensitive' } },
+        { content: { contains: q, mode: 'insensitive' } },
+        { sender: { name: { contains: q, mode: 'insensitive' } } },
+        { sender: { email: { contains: q, mode: 'insensitive' } } },
       ]
-    }
-
-    if (role && role !== 'all') {
-      where.role = role
     }
 
     if (status && status !== 'all') {
       where.status = status
     }
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
+    if (priority && priority !== 'all') {
+      where.priority = priority
+    }
+
+    const [messages, total] = await Promise.all([
+      prisma.supportMessage.findMany({
         where,
         include: {
-          companyProfile: {
+          sender: {
             select: {
               name: true,
-              verified: true,
+              email: true,
+              role: true,
             }
           },
-          _count: {
+          recipient: {
             select: {
-              appointments: true,
-              reviews: true,
+              name: true,
+              email: true,
+              role: true,
             }
+          },
+          replies: {
+            include: {
+              sender: {
+                select: {
+                  name: true,
+                  role: true,
+                }
+              }
+            },
+            orderBy: { createdAt: 'asc' }
           }
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.user.count({ where })
+      prisma.supportMessage.count({ where })
     ])
 
     return NextResponse.json({
-      data: users,
+      data: messages,
       total,
       page,
       totalPages: Math.ceil(total / limit),
     })
   } catch (error) {
-    console.error('Error fetching users:', error)
+    console.error('Error fetching messages:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

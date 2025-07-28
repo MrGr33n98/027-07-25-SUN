@@ -59,6 +59,9 @@ model User {
   favoriteProducts ProductFavorite[]
   quotes Quote[]
   appointments Appointment[]
+  sentSupportMessages SupportMessage[] @relation("SentSupportMessages")
+  receivedSupportMessages SupportMessage[] @relation("ReceivedSupportMessages")
+  supportMessageReplies SupportMessageReply[]
 
   @@map("users")
 }
@@ -447,6 +450,53 @@ enum CertificationStatus {
   REVOKED
 }
 
+model SupportMessage {
+  id        String            @id @default(cuid())
+  subject   String
+  content   String
+  status    SupportMessageStatus @default(OPEN)
+  priority  MessagePriority   @default(MEDIUM)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  sender      User   @relation("SentSupportMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId    String
+  recipient   User?  @relation("ReceivedSupportMessages", fields: [recipientId], references: [id], onDelete: SetNull)
+  recipientId String?
+
+  replies SupportMessageReply[]
+
+  @@map("support_messages")
+}
+
+model SupportMessageReply {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sender    User           @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  senderId  String
+  message   SupportMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  messageId String
+
+  @@map("support_message_replies")
+}
+
+enum SupportMessageStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum MessagePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 enum NotificationType {
   LEAD_RECEIVED
   PRODUCT_APPROVED
@@ -455,11 +505,23 @@ enum NotificationType {
   PROJECT_REJECTED
   REVIEW_RECEIVED
   MESSAGE_RECEIVED
+  MESSAGE_REPLY
+  MESSAGE_UPDATE
+  MESSAGE_RESOLVED
   QUOTE_RECEIVED
   QUOTE_ACCEPTED
   QUOTE_REJECTED
   APPOINTMENT_SCHEDULED
   APPOINTMENT_CONFIRMED
   APPOINTMENT_CANCELLED
+  COMPANY_VERIFIED
+  COMPANY_UNVERIFIED
+  COMPANY_SUSPENDED
+  COMPANY_ACTIVATED
+  COMPANY_REMOVED
+  ACCOUNT_UPDATE
+  ACCOUNT_SUSPENDED
+  ACCOUNT_ACTIVATED
+  ROLE_CHANGED
   SYSTEM_UPDATE
 }

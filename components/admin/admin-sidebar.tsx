@@ -15,7 +15,8 @@ import {
   Flag,
   FileText,
   Globe,
-  Database
+  Database,
+  Calendar
 } from 'lucide-react'
 
 const navigation = [
@@ -43,6 +44,11 @@ const navigation = [
     name: 'Avaliações',
     href: '/admin/avaliacoes',
     icon: Star,
+  },
+  {
+    name: 'Agendamentos',
+    href: '/admin/agendamentos',
+    icon: Calendar,
   },
   {
     name: 'Mensagens',

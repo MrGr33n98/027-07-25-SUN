@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
           data: { 
             status: 'APPROVED',
             moderatedAt: new Date(),
-            moderatedBy: session.user.id
+            moderatedBy: session.user.id,
+            rejectionReason: null
           },
           include: {
             company: {
@@ -55,7 +56,8 @@ export async function POST(request: NextRequest) {
           data: { 
             status: 'APPROVED',
             moderatedAt: new Date(),
-            moderatedBy: session.user.id
+            moderatedBy: session.user.id,
+            rejectionReason: null
           },
           include: {
             company: {
@@ -80,7 +82,8 @@ export async function POST(request: NextRequest) {
           data: { 
             status: 'APPROVED',
             moderatedAt: new Date(),
-            moderatedBy: session.user.id
+            moderatedBy: session.user.id,
+            rejectionReason: null
           }
         })
         break

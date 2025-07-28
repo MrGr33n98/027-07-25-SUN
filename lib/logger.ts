@@ -1,14 +1,14 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
 interface LogEntry {
+  timestamp: string
   level: LogLevel
   message: string
-  timestamp: string
+  data?: any
   userId?: string
-  sessionId?: string
+  requestId?: string
   userAgent?: string
   ip?: string
-  metadata?: Record<string, any>
 }
 
 class Logger {
@@ -20,256 +20,131 @@ class Logger {
       debug: 0,
       info: 1,
       warn: 2,
-      error: 3
+      error: 3,
     }
-    
     return levels[level] >= levels[this.logLevel]
   }
 
-  private formatLog(entry: LogEntry): string {
-    const { level, message, timestamp, userId, sessionId, metadata } = entry
-    
-    let logMessage = `[${timestamp}] ${level.toUpperCase()}: ${message}`
-    
-    if (userId) logMessage += ` | User: ${userId}`
-    if (sessionId) logMessage += ` | Session: ${sessionId}`
-    if (metadata) logMessage += ` | Metadata: ${JSON.stringify(metadata)}`
-    
-    return logMessage
-  }
-
-  private async persistLog(entry: LogEntry) {
-    // In production, you might want to send logs to a service like:
-    // - Vercel Analytics
-    // - Sentry
-    // - LogRocket
-    // - Custom logging service
-    
-    if (this.isDevelopment) {
-      console.log(this.formatLog(entry))
-      return
-    }
-
-    // Example: Send to external logging service
-    try {
-      // await fetch('/api/logs', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(entry)
-      // })
-    } catch (error) {
-      console.error('Failed to persist log:', error)
-    }
-  }
-
-  private createLogEntry(
-    level: LogLevel,
-    message: string,
-    metadata?: Record<string, any>,
-    context?: {
-      userId?: string
-      sessionId?: string
-      userAgent?: string
-      ip?: string
-    }
-  ): LogEntry {
+  private formatLog(level: LogLevel, message: string, data?: any, context?: Partial<LogEntry>): LogEntry {
     return {
+      timestamp: new Date().toISOString(),
       level,
       message,
-      timestamp: new Date().toISOString(),
-      userId: context?.userId,
-      sessionId: context?.sessionId,
-      userAgent: context?.userAgent,
-      ip: context?.ip,
-      metadata
+      data,
+      ...context,
     }
   }
 
-  debug(message: string, metadata?: Record<string, any>, context?: any) {
-    if (!this.shouldLog('debug')) return
-    
-    const entry = this.createLogEntry('debug', message, metadata, context)
-    this.persistLog(entry)
-  }
-
-  info(message: string, metadata?: Record<string, any>, context?: any) {
-    if (!this.shouldLog('info')) return
-    
-    const entry = this.createLogEntry('info', message, metadata, context)
-    this.persistLog(entry)
-  }
-
-  warn(message: string, metadata?: Record<string, any>, context?: any) {
-    if (!this.shouldLog('warn')) return
-    
-    const entry = this.createLogEntry('warn', message, metadata, context)
-    this.persistLog(entry)
-  }
-
-  error(message: string, error?: Error, metadata?: Record<string, any>, context?: any) {
-    if (!this.shouldLog('error')) return
-    
-    const errorMetadata = {
-      ...metadata,
-      ...(error && {
-        error: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack
-        }
-      })
+  private output(logEntry: LogEntry): void {
+    if (this.isDevelopment) {
+      // Pretty print for development
+      const color = {
+        debug: '\x1b[36m', // cyan
+        info: '\x1b[32m',  // green
+        warn: '\x1b[33m',  // yellow
+        error: '\x1b[31m', // red
+      }[logEntry.level]
+      
+      console.log(
+        `${color}[${logEntry.level.toUpperCase()}]\x1b[0m ${logEntry.timestamp} - ${logEntry.message}`,
+        logEntry.data ? logEntry.data : ''
+      )
+    } else {
+      // JSON format for production
+      console.log(JSON.stringify(logEntry))
     }
-    
-    const entry = this.createLogEntry('error', message, errorMetadata, context)
-    this.persistLog(entry)
+  }
+
+  debug(message: string, data?: any, context?: Partial<LogEntry>): void {
+    if (this.shouldLog('debug')) {
+      this.output(this.formatLog('debug', message, data, context))
+    }
+  }
+
+  info(message: string, data?: any, context?: Partial<LogEntry>): void {
+    if (this.shouldLog('info')) {
+      this.output(this.formatLog('info', message, data, context))
+    }
+  }
+
+  warn(message: string, data?: any, context?: Partial<LogEntry>): void {
+    if (this.shouldLog('warn')) {
+      this.output(this.formatLog('warn', message, data, context))
+    }
+  }
+
+  error(message: string, error?: Error | any, context?: Partial<LogEntry>): void {
+    if (this.shouldLog('error')) {
+      const errorData = error instanceof Error 
+        ? { 
+            name: error.name, 
+            message: error.message, 
+            stack: error.stack 
+          }
+        : error
+
+      this.output(this.formatLog('error', message, errorData, context))
+    }
   }
 
   // Specific logging methods for common scenarios
-  userAction(
-    action: string,
-    userId: string,
-    metadata?: Record<string, any>,
-    context?: any
-  ) {
-    this.info(`User action: ${action}`, metadata, { ...context, userId })
+  apiRequest(method: string, path: string, userId?: string, ip?: string): void {
+    this.info(`API Request: ${method} ${path}`, null, { userId, ip })
   }
 
-  apiRequest(
-    method: string,
-    path: string,
-    statusCode: number,
-    duration: number,
-    userId?: string,
-    context?: any
-  ) {
-    const level = statusCode >= 400 ? 'error' : 'info'
-    const message = `${method} ${path} - ${statusCode} (${duration}ms)`
-    
-    this[level](message, { method, path, statusCode, duration }, { ...context, userId })
+  apiResponse(method: string, path: string, statusCode: number, duration: number, userId?: string): void {
+    this.info(`API Response: ${method} ${path} - ${statusCode} (${duration}ms)`, null, { userId })
   }
 
-  databaseQuery(
-    query: string,
-    duration: number,
-    metadata?: Record<string, any>
-  ) {
-    this.debug(`Database query: ${query} (${duration}ms)`, metadata)
+  apiError(method: string, path: string, error: Error, userId?: string, ip?: string): void {
+    this.error(`API Error: ${method} ${path}`, error, { userId, ip })
   }
 
-  authEvent(
-    event: 'login' | 'logout' | 'register' | 'failed_login',
-    userId?: string,
-    metadata?: Record<string, any>,
-    context?: any
-  ) {
-    this.info(`Auth event: ${event}`, metadata, { ...context, userId })
+  userAction(action: string, userId: string, data?: any): void {
+    this.info(`User Action: ${action}`, data, { userId })
   }
 
-  businessEvent(
-    event: string,
-    metadata?: Record<string, any>,
-    context?: any
-  ) {
-    this.info(`Business event: ${event}`, metadata, context)
+  systemEvent(event: string, data?: any): void {
+    this.info(`System Event: ${event}`, data)
+  }
+
+  performance(operation: string, duration: number, data?: any): void {
+    const level = duration > 1000 ? 'warn' : 'info'
+    this[level](`Performance: ${operation} took ${duration}ms`, data)
+  }
+
+  security(event: string, data?: any, ip?: string): void {
+    this.warn(`Security Event: ${event}`, data, { ip })
   }
 }
 
 export const logger = new Logger()
 
-// Performance monitoring
-export class PerformanceMonitor {
-  private static instance: PerformanceMonitor
-  private metrics: Map<string, number[]> = new Map()
-
-  static getInstance(): PerformanceMonitor {
-    if (!PerformanceMonitor.instance) {
-      PerformanceMonitor.instance = new PerformanceMonitor()
-    }
-    return PerformanceMonitor.instance
-  }
-
-  startTimer(label: string): () => void {
-    const start = performance.now()
-    
-    return () => {
-      const duration = performance.now() - start
-      this.recordMetric(label, duration)
-    }
-  }
-
-  recordMetric(label: string, value: number) {
-    if (!this.metrics.has(label)) {
-      this.metrics.set(label, [])
-    }
-    
-    const values = this.metrics.get(label)!
-    values.push(value)
-    
-    // Keep only last 100 measurements
-    if (values.length > 100) {
-      values.shift()
-    }
-    
-    // Log slow operations
-    if (value > 1000) { // > 1 second
-      logger.warn(`Slow operation detected: ${label}`, { duration: value })
-    }
-  }
-
-  getMetrics(label: string) {
-    const values = this.metrics.get(label) || []
-    if (values.length === 0) return null
-    
-    const sorted = [...values].sort((a, b) => a - b)
-    const avg = values.reduce((sum, val) => sum + val, 0) / values.length
-    const p50 = sorted[Math.floor(sorted.length * 0.5)]
-    const p95 = sorted[Math.floor(sorted.length * 0.95)]
-    const p99 = sorted[Math.floor(sorted.length * 0.99)]
-    
-    return {
-      count: values.length,
-      avg: Math.round(avg),
-      min: Math.round(sorted[0]),
-      max: Math.round(sorted[sorted.length - 1]),
-      p50: Math.round(p50),
-      p95: Math.round(p95),
-      p99: Math.round(p99)
-    }
-  }
-
-  getAllMetrics() {
-    const result: Record<string, any> = {}
-    for (const [label] of this.metrics) {
-      result[label] = this.getMetrics(label)
-    }
-    return result
-  }
-}
-
-export const performanceMonitor = PerformanceMonitor.getInstance()
-
-// Middleware helper for API routes
-export function withLogging<T extends any[], R>(
-  fn: (...args: T) => Promise<R>,
-  label: string
-) {
-  return async (...args: T): Promise<R> => {
-    const stopTimer = performanceMonitor.startTimer(label)
+// Middleware for request logging
+export function withRequestLogging(handler: Function) {
+  return async (request: Request, ...args: any[]) => {
     const start = Date.now()
-    
+    const method = request.method
+    const url = new URL(request.url)
+    const path = url.pathname
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+               request.headers.get('x-real-ip') || 
+               'unknown'
+
+    logger.apiRequest(method, path, undefined, ip)
+
     try {
-      const result = await fn(...args)
+      const response = await handler(request, ...args)
       const duration = Date.now() - start
+      const statusCode = response.status || 200
       
-      logger.info(`${label} completed successfully`, { duration })
-      return result
+      logger.apiResponse(method, path, statusCode, duration)
+      
+      return response
     } catch (error) {
       const duration = Date.now() - start
-      
-      logger.error(`${label} failed`, error as Error, { duration })
+      logger.apiError(method, path, error as Error, undefined, ip)
       throw error
-    } finally {
-      stopTimer()
     }
   }
 }

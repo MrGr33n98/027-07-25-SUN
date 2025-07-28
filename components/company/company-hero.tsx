@@ -97,20 +97,20 @@ export function CompanyHero({ company, showQuoteForm = false }: CompanyHeroProps
                   {/* Rating */}
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="flex items-center">
-                      {renderStars(Math.floor(company.rating))}
+                      {renderStars(Math.floor(company.rating || 0))}
                       <span className="ml-2 text-lg font-semibold text-gray-900">
-                        {formatRating(company.rating)}
+                        {formatRating(company.rating || 0)}
                       </span>
                     </div>
                     <span className="text-gray-600">
-                      ({company.reviewCount} avaliações)
+                      ({company.reviewCount || 0} avaliações)
                     </span>
                   </div>
 
                   {/* Location */}
                   <div className="flex items-center text-gray-600 mb-4">
                     <MapPin className="w-5 h-5 mr-2" />
-                    {company.location}
+                    {company.location || `${company.city}, ${company.state}`}
                   </div>
 
                   {/* Description */}

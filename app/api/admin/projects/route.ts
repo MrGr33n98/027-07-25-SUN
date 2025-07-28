@@ -14,40 +14,35 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '20')
     const q = searchParams.get('q')
-    const role = searchParams.get('role')
     const status = searchParams.get('status')
+    const category = searchParams.get('category')
 
     let where: any = {}
 
     if (q) {
       where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
+        { title: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { location: { contains: q, mode: 'insensitive' } },
       ]
-    }
-
-    if (role && role !== 'all') {
-      where.role = role
     }
 
     if (status && status !== 'all') {
       where.status = status
     }
 
-    const [users, total] = await Promise.all([
-      prisma.user.findMany({
+    if (category && category !== 'all') {
+      where.category = category
+    }
+
+    const [projects, total] = await Promise.all([
+      prisma.project.findMany({
         where,
         include: {
-          companyProfile: {
+          company: {
             select: {
               name: true,
               verified: true,
-            }
-          },
-          _count: {
-            select: {
-              appointments: true,
-              reviews: true,
             }
           }
         },
@@ -55,17 +50,17 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.user.count({ where })
+      prisma.project.count({ where })
     ])
 
     return NextResponse.json({
-      data: users,
+      data: projects,
       total,
       page,
       totalPages: Math.ceil(total / limit),
     })
   } catch (error) {
-    console.error('Error fetching users:', error)
+    console.error('Error fetching projects:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
