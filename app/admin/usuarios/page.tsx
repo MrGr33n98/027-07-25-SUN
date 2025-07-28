@@ -6,16 +6,12 @@ import { redirect } from 'next/navigation'
 import {
     Users,
     Search,
-    Filter,
-    MoreVertical,
     Shield,
-    Ban,
     CheckCircle,
     Trash2,
     Eye,
     Calendar,
-    Mail,
-    Phone
+    Mail
 } from 'lucide-react'
 
 interface User {

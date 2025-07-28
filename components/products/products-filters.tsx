@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -26,6 +27,9 @@ interface ProductsFiltersProps {
 }
 
 export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
+  const router = useRouter()
+  const currentSearchParams = useSearchParams()
+  
   const [expandedSections, setExpandedSections] = useState({
     categoria: true,
     marca: true,
@@ -38,11 +42,51 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
     'potencia-carregamento': false
   })
 
+  const [localFilters, setLocalFilters] = useState({
+    preco_min: searchParams.preco_min || '',
+    preco_max: searchParams.preco_max || '',
+    potencia_min: searchParams.potencia_min || '',
+    potencia_max: searchParams.potencia_max || ''
+  })
+
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
       ...prev,
       [section]: !prev[section as keyof typeof prev]
     }))
+  }
+
+  const updateURL = useCallback((newParams: Record<string, string | null>) => {
+    const params = new URLSearchParams(currentSearchParams.toString())
+    
+    Object.entries(newParams).forEach(([key, value]) => {
+      if (value === null || value === '') {
+        params.delete(key)
+      } else {
+        params.set(key, value)
+      }
+    })
+    
+    // Reset to first page when filters change
+    params.delete('pagina')
+    
+    router.push(`/produtos?${params.toString()}`)
+  }, [currentSearchParams, router])
+
+  const handleFilterChange = (key: string, value: string | null) => {
+    updateURL({ [key]: value })
+  }
+
+  const handleMultipleFilters = (filters: Record<string, string | null>) => {
+    updateURL(filters)
+  }
+
+  const clearAllFilters = () => {
+    router.push('/produtos')
+  }
+
+  const applyFilters = () => {
+    updateURL(localFilters)
   }
 
   const categories = [
@@ -149,7 +193,12 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
               <Filter className="w-4 h-4 mr-2" />
               Filtros Ativos
             </h3>
-            <Button variant="ghost" size="sm" className="text-orange-600 hover:text-orange-700">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-orange-600 hover:text-orange-700"
+              onClick={clearAllFilters}
+            >
               <X className="w-4 h-4 mr-1" />
               Limpar
             </Button>
@@ -158,20 +207,29 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
           <div className="flex flex-wrap gap-2">
             {searchParams.categoria && (
               <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm flex items-center">
-                {searchParams.categoria}
-                <X className="w-3 h-3 ml-2 cursor-pointer" />
+                {categories.find(c => c.id === searchParams.categoria)?.name || searchParams.categoria}
+                <X 
+                  className="w-3 h-3 ml-2 cursor-pointer" 
+                  onClick={() => handleFilterChange('categoria', null)}
+                />
               </span>
             )}
             {searchParams.marca && (
               <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm flex items-center">
-                {searchParams.marca}
-                <X className="w-3 h-3 ml-2 cursor-pointer" />
+                {brands.find(b => b.id === searchParams.marca)?.name || searchParams.marca}
+                <X 
+                  className="w-3 h-3 ml-2 cursor-pointer"
+                  onClick={() => handleFilterChange('marca', null)}
+                />
               </span>
             )}
             {(searchParams.preco_min || searchParams.preco_max) && (
               <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm flex items-center">
                 R$ {searchParams.preco_min || '0'} - {searchParams.preco_max || '∞'}
-                <X className="w-3 h-3 ml-2 cursor-pointer" />
+                <X 
+                  className="w-3 h-3 ml-2 cursor-pointer"
+                  onClick={() => handleMultipleFilters({ preco_min: null, preco_max: null })}
+                />
               </span>
             )}
           </div>
@@ -202,6 +260,9 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
                       type="checkbox"
                       className="mr-3 text-orange-600 focus:ring-orange-500"
                       checked={searchParams.categoria === category.id}
+                      onChange={(e) => {
+                        handleFilterChange('categoria', e.target.checked ? category.id : null)
+                      }}
                     />
                     <span className="text-sm text-gray-700">{category.name}</span>
                   </div>
@@ -237,6 +298,9 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
                       type="checkbox"
                       className="mr-3 text-orange-600 focus:ring-orange-500"
                       checked={searchParams.marca === brand.id}
+                      onChange={(e) => {
+                        handleFilterChange('marca', e.target.checked ? brand.id : null)
+                      }}
                     />
                     <span className="text-sm text-gray-700">{brand.name}</span>
                   </div>
@@ -272,7 +336,8 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
                     type="number"
                     placeholder="0"
                     className="text-sm"
-                    defaultValue={searchParams.preco_min}
+                    value={localFilters.preco_min}
+                    onChange={(e) => setLocalFilters(prev => ({ ...prev, preco_min: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -281,7 +346,8 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
                     type="number"
                     placeholder="10000"
                     className="text-sm"
-                    defaultValue={searchParams.preco_max}
+                    value={localFilters.preco_max}
+                    onChange={(e) => setLocalFilters(prev => ({ ...prev, preco_max: e.target.value }))}
                   />
                 </div>
               </div>
@@ -333,7 +399,8 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
                     type="number"
                     placeholder="0"
                     className="text-sm"
-                    defaultValue={searchParams.potencia_min}
+                    value={localFilters.potencia_min}
+                    onChange={(e) => setLocalFilters(prev => ({ ...prev, potencia_min: e.target.value }))}
                   />
                 </div>
                 <div>
@@ -342,7 +409,8 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
                     type="number"
                     placeholder="1000"
                     className="text-sm"
-                    defaultValue={searchParams.potencia_max}
+                    value={localFilters.potencia_max}
+                    onChange={(e) => setLocalFilters(prev => ({ ...prev, potencia_max: e.target.value }))}
                   />
                 </div>
               </div>
@@ -619,7 +687,10 @@ export function ProductsFilters({ searchParams }: ProductsFiltersProps) {
       </Card>
 
       {/* Apply Filters Button */}
-      <Button className="w-full bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white">
+      <Button 
+        className="w-full bg-gradient-to-r from-orange-500 to-green-500 hover:from-orange-600 hover:to-green-600 text-white"
+        onClick={applyFilters}
+      >
         Aplicar Filtros
       </Button>
     </div>

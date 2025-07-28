@@ -1,150 +1,361 @@
-type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+import { prisma } from './prisma'
 
-interface LogEntry {
-  timestamp: string
-  level: LogLevel
-  message: string
-  data?: any
-  userId?: string
-  requestId?: string
-  userAgent?: string
-  ip?: string
+export enum LogLevel {
+  DEBUG = 'DEBUG',
+  INFO = 'INFO',
+  WARN = 'WARN',
+  ERROR = 'ERROR',
+  FATAL = 'FATAL'
 }
 
-class Logger {
-  private isDevelopment = process.env.NODE_ENV === 'development'
-  private logLevel: LogLevel = (process.env.LOG_LEVEL as LogLevel) || 'info'
+export enum LogCategory {
+  AUTH = 'AUTH',
+  API = 'API',
+  DATABASE = 'DATABASE',
+  CACHE = 'CACHE',
+  PAYMENT = 'PAYMENT',
+  EMAIL = 'EMAIL',
+  ADMIN = 'ADMIN',
+  SECURITY = 'SECURITY',
+  PERFORMANCE = 'PERFORMANCE',
+  USER_ACTION = 'USER_ACTION',
+  SYSTEM = 'SYSTEM'
+}
 
-  private shouldLog(level: LogLevel): boolean {
-    const levels: Record<LogLevel, number> = {
-      debug: 0,
-      info: 1,
-      warn: 2,
-      error: 3,
+export interface LogEntry {
+  level: LogLevel
+  category: LogCategory
+  message: string
+  userId?: string
+  sessionId?: string
+  ip?: string
+  userAgent?: string
+  metadata?: Record<string, any>
+  timestamp?: Date
+  requestId?: string
+  duration?: number
+  error?: Error
+}
+
+export class Logger {
+  private static instance: Logger
+  private requestId: string | null = null
+
+  static getInstance(): Logger {
+    if (!Logger.instance) {
+      Logger.instance = new Logger()
     }
-    return levels[level] >= levels[this.logLevel]
+    return Logger.instance
   }
 
-  private formatLog(level: LogLevel, message: string, data?: any, context?: Partial<LogEntry>): LogEntry {
-    return {
-      timestamp: new Date().toISOString(),
-      level,
-      message,
-      data,
-      ...context,
+  setRequestId(requestId: string) {
+    this.requestId = requestId
+  }
+
+  async log(entry: LogEntry): Promise<void> {
+    const logEntry = {
+      ...entry,
+      timestamp: entry.timestamp || new Date(),
+      requestId: entry.requestId || this.requestId
+    }
+
+    // Console logging for development
+    if (process.env.NODE_ENV === 'development') {
+      this.consoleLog(logEntry)
+    }
+
+    // Database logging for important events
+    if (this.shouldPersist(entry.level, entry.category)) {
+      await this.persistLog(logEntry)
+    }
+
+    // External logging service (e.g., Sentry, LogRocket)
+    if (entry.level === LogLevel.ERROR || entry.level === LogLevel.FATAL) {
+      await this.sendToExternalService(logEntry)
     }
   }
 
-  private output(logEntry: LogEntry): void {
-    if (this.isDevelopment) {
-      // Pretty print for development
-      const color = {
-        debug: '\x1b[36m', // cyan
-        info: '\x1b[32m',  // green
-        warn: '\x1b[33m',  // yellow
-        error: '\x1b[31m', // red
-      }[logEntry.level]
-      
-      console.log(
-        `${color}[${logEntry.level.toUpperCase()}]\x1b[0m ${logEntry.timestamp} - ${logEntry.message}`,
-        logEntry.data ? logEntry.data : ''
-      )
-    } else {
-      // JSON format for production
-      console.log(JSON.stringify(logEntry))
-    }
+  async debug(category: LogCategory, message: string, metadata?: Record<string, any>) {
+    await this.log({ level: LogLevel.DEBUG, category, message, metadata })
   }
 
-  debug(message: string, data?: any, context?: Partial<LogEntry>): void {
-    if (this.shouldLog('debug')) {
-      this.output(this.formatLog('debug', message, data, context))
-    }
+  async info(category: LogCategory, message: string, metadata?: Record<string, any>) {
+    await this.log({ level: LogLevel.INFO, category, message, metadata })
   }
 
-  info(message: string, data?: any, context?: Partial<LogEntry>): void {
-    if (this.shouldLog('info')) {
-      this.output(this.formatLog('info', message, data, context))
-    }
+  async warn(category: LogCategory, message: string, metadata?: Record<string, any>) {
+    await this.log({ level: LogLevel.WARN, category, message, metadata })
   }
 
-  warn(message: string, data?: any, context?: Partial<LogEntry>): void {
-    if (this.shouldLog('warn')) {
-      this.output(this.formatLog('warn', message, data, context))
-    }
+  async error(category: LogCategory, message: string, error?: Error, metadata?: Record<string, any>) {
+    await this.log({ level: LogLevel.ERROR, category, message, error, metadata })
   }
 
-  error(message: string, error?: Error | any, context?: Partial<LogEntry>): void {
-    if (this.shouldLog('error')) {
-      const errorData = error instanceof Error 
-        ? { 
-            name: error.name, 
-            message: error.message, 
-            stack: error.stack 
-          }
-        : error
-
-      this.output(this.formatLog('error', message, errorData, context))
-    }
+  async fatal(category: LogCategory, message: string, error?: Error, metadata?: Record<string, any>) {
+    await this.log({ level: LogLevel.FATAL, category, message, error, metadata })
   }
 
   // Specific logging methods for common scenarios
-  apiRequest(method: string, path: string, userId?: string, ip?: string): void {
-    this.info(`API Request: ${method} ${path}`, null, { userId, ip })
+  async logUserAction(userId: string, action: string, metadata?: Record<string, any>) {
+    await this.info(LogCategory.USER_ACTION, `User ${userId} performed: ${action}`, {
+      userId,
+      action,
+      ...metadata
+    })
   }
 
-  apiResponse(method: string, path: string, statusCode: number, duration: number, userId?: string): void {
-    this.info(`API Response: ${method} ${path} - ${statusCode} (${duration}ms)`, null, { userId })
+  async logAPIRequest(method: string, path: string, statusCode: number, duration: number, userId?: string) {
+    await this.info(LogCategory.API, `${method} ${path} - ${statusCode}`, {
+      method,
+      path,
+      statusCode,
+      duration,
+      userId
+    })
   }
 
-  apiError(method: string, path: string, error: Error, userId?: string, ip?: string): void {
-    this.error(`API Error: ${method} ${path}`, error, { userId, ip })
+  async logAuthEvent(event: string, userId?: string, success: boolean = true, metadata?: Record<string, any>) {
+    const level = success ? LogLevel.INFO : LogLevel.WARN
+    await this.log({
+      level,
+      category: LogCategory.AUTH,
+      message: `Auth event: ${event}`,
+      userId,
+      metadata: { event, success, ...metadata }
+    })
   }
 
-  userAction(action: string, userId: string, data?: any): void {
-    this.info(`User Action: ${action}`, data, { userId })
+  async logSecurityEvent(event: string, severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL', metadata?: Record<string, any>) {
+    const level = severity === 'CRITICAL' ? LogLevel.FATAL : 
+                  severity === 'HIGH' ? LogLevel.ERROR :
+                  severity === 'MEDIUM' ? LogLevel.WARN : LogLevel.INFO
+
+    await this.log({
+      level,
+      category: LogCategory.SECURITY,
+      message: `Security event: ${event}`,
+      metadata: { event, severity, ...metadata }
+    })
   }
 
-  systemEvent(event: string, data?: any): void {
-    this.info(`System Event: ${event}`, data)
+  async logPerformance(operation: string, duration: number, metadata?: Record<string, any>) {
+    const level = duration > 5000 ? LogLevel.WARN : LogLevel.INFO
+    await this.log({
+      level,
+      category: LogCategory.PERFORMANCE,
+      message: `Performance: ${operation} took ${duration}ms`,
+      duration,
+      metadata: { operation, ...metadata }
+    })
   }
 
-  performance(operation: string, duration: number, data?: any): void {
-    const level = duration > 1000 ? 'warn' : 'info'
-    this[level](`Performance: ${operation} took ${duration}ms`, data)
+  async logPayment(event: string, amount?: number, currency?: string, userId?: string, metadata?: Record<string, any>) {
+    await this.info(LogCategory.PAYMENT, `Payment event: ${event}`, {
+      event,
+      amount,
+      currency,
+      userId,
+      ...metadata
+    })
   }
 
-  security(event: string, data?: any, ip?: string): void {
-    this.warn(`Security Event: ${event}`, data, { ip })
+  private consoleLog(entry: LogEntry) {
+    const timestamp = entry.timestamp?.toISOString()
+    const prefix = `[${timestamp}] [${entry.level}] [${entry.category}]`
+    
+    const logData = {
+      message: entry.message,
+      ...(entry.userId && { userId: entry.userId }),
+      ...(entry.requestId && { requestId: entry.requestId }),
+      ...(entry.duration && { duration: `${entry.duration}ms` }),
+      ...(entry.metadata && { metadata: entry.metadata })
+    }
+
+    switch (entry.level) {
+      case LogLevel.DEBUG:
+        console.debug(prefix, logData)
+        break
+      case LogLevel.INFO:
+        console.info(prefix, logData)
+        break
+      case LogLevel.WARN:
+        console.warn(prefix, logData)
+        break
+      case LogLevel.ERROR:
+      case LogLevel.FATAL:
+        console.error(prefix, logData, entry.error)
+        break
+    }
+  }
+
+  private async persistLog(entry: LogEntry): Promise<void> {
+    try {
+      await prisma.systemLog.create({
+        data: {
+          level: entry.level,
+          category: entry.category,
+          message: entry.message,
+          userId: entry.userId,
+          sessionId: entry.sessionId,
+          ip: entry.ip,
+          userAgent: entry.userAgent,
+          metadata: entry.metadata ? JSON.stringify(entry.metadata) : null,
+          requestId: entry.requestId,
+          duration: entry.duration,
+          errorStack: entry.error?.stack,
+          timestamp: entry.timestamp || new Date()
+        }
+      })
+    } catch (error) {
+      // Don't let logging errors break the application
+      console.error('Failed to persist log:', error)
+    }
+  }
+
+  private shouldPersist(level: LogLevel, category: LogCategory): boolean {
+    // Always persist errors and security events
+    if (level === LogLevel.ERROR || level === LogLevel.FATAL) {
+      return true
+    }
+
+    if (category === LogCategory.SECURITY || category === LogCategory.PAYMENT) {
+      return true
+    }
+
+    // Persist auth events and admin actions
+    if (category === LogCategory.AUTH || category === LogCategory.ADMIN) {
+      return true
+    }
+
+    // In production, only persist important events
+    if (process.env.NODE_ENV === 'production') {
+      return level === LogLevel.WARN || level === LogLevel.ERROR || level === LogLevel.FATAL
+    }
+
+    // In development, persist more events
+    return level !== LogLevel.DEBUG
+  }
+
+  private async sendToExternalService(entry: LogEntry): Promise<void> {
+    try {
+      // Example: Send to Sentry
+      if (process.env.SENTRY_DSN && entry.error) {
+        // Sentry integration would go here
+        console.log('Would send to Sentry:', entry)
+      }
+
+      // Example: Send to custom logging service
+      if (process.env.EXTERNAL_LOG_ENDPOINT) {
+        // External service integration would go here
+        console.log('Would send to external service:', entry)
+      }
+    } catch (error) {
+      console.error('Failed to send log to external service:', error)
+    }
+  }
+
+  // Utility methods for structured logging
+  async logWithContext(
+    level: LogLevel,
+    category: LogCategory,
+    message: string,
+    context: {
+      userId?: string
+      sessionId?: string
+      ip?: string
+      userAgent?: string
+      requestId?: string
+    },
+    metadata?: Record<string, any>
+  ) {
+    await this.log({
+      level,
+      category,
+      message,
+      ...context,
+      metadata
+    })
+  }
+
+  // Method to get recent logs for admin dashboard
+  async getRecentLogs(
+    limit: number = 100,
+    level?: LogLevel,
+    category?: LogCategory,
+    userId?: string
+  ) {
+    try {
+      const where: any = {}
+      
+      if (level) where.level = level
+      if (category) where.category = category
+      if (userId) where.userId = userId
+
+      return await prisma.systemLog.findMany({
+        where,
+        orderBy: { timestamp: 'desc' },
+        take: limit,
+        select: {
+          id: true,
+          level: true,
+          category: true,
+          message: true,
+          userId: true,
+          ip: true,
+          timestamp: true,
+          duration: true,
+          metadata: true
+        }
+      })
+    } catch (error) {
+      console.error('Failed to get recent logs:', error)
+      return []
+    }
+  }
+
+  // Method to get log statistics
+  async getLogStats(hours: number = 24) {
+    try {
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000)
+
+      const stats = await prisma.systemLog.groupBy({
+        by: ['level', 'category'],
+        where: {
+          timestamp: { gte: since }
+        },
+        _count: true
+      })
+
+      return stats.reduce((acc, stat) => {
+        if (!acc[stat.level]) acc[stat.level] = {}
+        acc[stat.level][stat.category] = stat._count
+        return acc
+      }, {} as Record<string, Record<string, number>>)
+    } catch (error) {
+      console.error('Failed to get log stats:', error)
+      return {}
+    }
   }
 }
 
-export const logger = new Logger()
+// Export singleton instance
+export const logger = Logger.getInstance()
 
-// Middleware for request logging
-export function withRequestLogging(handler: Function) {
-  return async (request: Request, ...args: any[]) => {
-    const start = Date.now()
-    const method = request.method
-    const url = new URL(request.url)
-    const path = url.pathname
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
-               request.headers.get('x-real-ip') || 
-               'unknown'
-
-    logger.apiRequest(method, path, undefined, ip)
-
-    try {
-      const response = await handler(request, ...args)
-      const duration = Date.now() - start
-      const statusCode = response.status || 200
-      
-      logger.apiResponse(method, path, statusCode, duration)
-      
-      return response
-    } catch (error) {
-      const duration = Date.now() - start
-      logger.apiError(method, path, error as Error, undefined, ip)
-      throw error
+// Middleware helper for request logging
+export function createRequestLogger(req: any) {
+  const requestId = req.headers['x-request-id'] || `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  logger.setRequestId(requestId)
+  
+  return {
+    requestId,
+    logRequest: (method: string, path: string, statusCode: number, duration: number, userId?: string) => {
+      logger.logAPIRequest(method, path, statusCode, duration, userId)
+    },
+    logError: (error: Error, context?: Record<string, any>) => {
+      logger.error(LogCategory.API, `Request error: ${error.message}`, error, {
+        requestId,
+        ...context
+      })
     }
   }
 }

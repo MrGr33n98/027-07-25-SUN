@@ -6,7 +6,8 @@ import { prisma } from '@/lib/prisma'
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -17,19 +18,22 @@ export async function GET(request: NextRequest) {
     const role = searchParams.get('role')
     const status = searchParams.get('status')
 
-    let where: any = {}
+    const skip = (page - 1) * limit
 
+    // Build where clause
+    const where: any = {}
+    
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } }
       ]
     }
-
+    
     if (role && role !== 'all') {
       where.role = role
     }
-
+    
     if (status && status !== 'all') {
       where.status = status
     }
@@ -37,33 +41,36 @@ export async function GET(request: NextRequest) {
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
+        skip,
+        take: limit,
         include: {
           companyProfile: {
             select: {
               name: true,
-              verified: true,
+              verified: true
             }
           },
           _count: {
             select: {
               appointments: true,
-              reviews: true,
+              reviews: true
             }
           }
         },
-        orderBy: { createdAt: 'desc' },
-        skip: (page - 1) * limit,
-        take: limit,
+        orderBy: { createdAt: 'desc' }
       }),
       prisma.user.count({ where })
     ])
 
+    const totalPages = Math.ceil(total / limit)
+
     return NextResponse.json({
       data: users,
       total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      totalPages,
+      currentPage: page
     })
+
   } catch (error) {
     console.error('Error fetching users:', error)
     return NextResponse.json(

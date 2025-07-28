@@ -9,82 +9,74 @@ export async function PATCH(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const { id } = params
     const body = await request.json()
     const { status, role } = body
 
-    // Prevent admin from changing their own role or status
-    if (params.id === session.user.id) {
-      return NextResponse.json(
-        { error: 'Cannot modify your own account' },
-        { status: 400 }
-      )
+    // Validate input
+    if (status && !['ACTIVE', 'SUSPENDED', 'PENDING'].includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
-    const updateData: any = {}
-    if (status) updateData.status = status
-    if (role) updateData.role = role
+    if (role && !['USER', 'COMPANY', 'ADMIN'].includes(role)) {
+      return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+    }
 
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data: updateData,
+    // Check if user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { id }
+    })
+
+    if (!existingUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Update user
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        ...(status && { status }),
+        ...(role && { role }),
+        updatedAt: new Date()
+      },
       include: {
         companyProfile: {
           select: {
             name: true,
-            verified: true,
+            verified: true
           }
         },
         _count: {
           select: {
             appointments: true,
-            reviews: true,
+            reviews: true
           }
         }
       }
     })
 
-    // Create notification for user about status/role change
-    if (status || role) {
-      let title = ''
-      let message = ''
-      let type = 'ACCOUNT_UPDATE'
-
-      if (status === 'SUSPENDED') {
-        title = 'Conta suspensa'
-        message = 'Sua conta foi suspensa por um administrador. Entre em contato conosco se tiver dúvidas.'
-        type = 'ACCOUNT_SUSPENDED'
-      } else if (status === 'ACTIVE') {
-        title = 'Conta reativada'
-        message = 'Sua conta foi reativada e você pode usar normalmente a plataforma.'
-        type = 'ACCOUNT_ACTIVATED'
-      } else if (role) {
-        title = 'Papel alterado'
-        message = `Seu papel na plataforma foi alterado para ${role === 'ADMIN' ? 'Administrador' : role === 'COMPANY' ? 'Empresa' : 'Usuário'}.`
-        type = 'ROLE_CHANGED'
+    // Log admin action
+    await prisma.adminLog.create({
+      data: {
+        adminId: session.user.id,
+        action: 'USER_UPDATE',
+        targetId: id,
+        details: {
+          changes: { status, role },
+          targetType: 'USER'
+        }
       }
+    }).catch(() => {
+      // Log creation is optional, don't fail the request
+    })
 
-      if (title) {
-        await prisma.notification.create({
-          data: {
-            title,
-            message,
-            type,
-            userId: params.id,
-            data: {
-              changedBy: session.user.id,
-              newStatus: status,
-              newRole: role,
-            }
-          }
-        })
-      }
-    }
+    return NextResponse.json(updatedUser)
 
-    return NextResponse.json(user)
   } catch (error) {
     console.error('Error updating user:', error)
     return NextResponse.json(
@@ -100,54 +92,57 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session?.user || session.user.role !== 'ADMIN') {
+    
+    if (!session || session.user.role !== 'ADMIN') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Prevent admin from deleting their own account
-    if (params.id === session.user.id) {
+    const { id } = params
+
+    // Check if user exists
+    const existingUser = await prisma.user.findUnique({
+      where: { id }
+    })
+
+    if (!existingUser) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+    }
+
+    // Prevent admin from deleting themselves
+    if (id === session.user.id) {
       return NextResponse.json(
         { error: 'Cannot delete your own account' },
         { status: 400 }
       )
     }
 
-    // Check if user has dependencies
-    const userWithDeps = await prisma.user.findUnique({
-      where: { id: params.id },
-      include: {
-        _count: {
-          select: {
-            appointments: true,
-            reviews: true,
-            companyProfile: true,
-          }
-        }
+    // Soft delete - just mark as deleted
+    await prisma.user.update({
+      where: { id },
+      data: {
+        status: 'SUSPENDED',
+        email: `deleted_${Date.now()}_${existingUser.email}`,
+        updatedAt: new Date()
       }
     })
 
-    if (!userWithDeps) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
-    // If user has dependencies, just deactivate instead of delete
-    if (userWithDeps._count.appointments > 0 || userWithDeps._count.reviews > 0 || userWithDeps._count.companyProfile > 0) {
-      await prisma.user.update({
-        where: { id: params.id },
-        data: { 
-          status: 'SUSPENDED',
-          email: `deleted_${Date.now()}_${userWithDeps.email}`,
-          name: '[Usuário Removido]'
+    // Log admin action
+    await prisma.adminLog.create({
+      data: {
+        adminId: session.user.id,
+        action: 'USER_DELETE',
+        targetId: id,
+        details: {
+          targetType: 'USER',
+          originalEmail: existingUser.email
         }
-      })
-    } else {
-      // Safe to delete if no dependencies
-      await prisma.user.delete({
-        where: { id: params.id }
-      })
-    }
+      }
+    }).catch(() => {
+      // Log creation is optional
+    })
 
     return NextResponse.json({ success: true })
+
   } catch (error) {
     console.error('Error deleting user:', error)
     return NextResponse.json(
