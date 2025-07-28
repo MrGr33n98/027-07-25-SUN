@@ -41,6 +41,8 @@ export function SearchFilters({ filters, onFiltersChange }: SearchFiltersProps) 
       location: '',
       minRating: undefined,
       verified: undefined,
+      categoria: undefined,
+      especialidade: undefined,
       sortBy: 'relevance',
     })
   }
@@ -167,6 +169,46 @@ export function SearchFilters({ filters, onFiltersChange }: SearchFiltersProps) 
               <span className="text-sm text-gray-600">Todas</span>
             </label>
           </div>
+        </div>
+
+        {/* Category */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            Categoria
+          </label>
+          <select
+            value={filters.categoria || ''}
+            onChange={(e) => onFiltersChange({ categoria: e.target.value || undefined })}
+            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">Todas as categorias</option>
+            <option value="residencial">Residencial</option>
+            <option value="comercial">Comercial</option>
+            <option value="industrial">Industrial</option>
+            <option value="rural">Rural</option>
+            <option value="eletroposto">Eletroposto</option>
+          </select>
+        </div>
+
+        {/* Specialty */}
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">
+            Especialidade
+          </label>
+          <select
+            value={filters.especialidade || ''}
+            onChange={(e) => onFiltersChange({ especialidade: e.target.value || undefined })}
+            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">Todas as especialidades</option>
+            <option value="instalacao">Instalação</option>
+            <option value="manutencao">Manutenção</option>
+            <option value="projeto">Projeto</option>
+            <option value="consultoria">Consultoria</option>
+            <option value="financiamento">Financiamento</option>
+            <option value="monitoramento">Monitoramento</option>
+            <option value="homologacao">Homologação</option>
+          </select>
         </div>
 
         {/* Sort */}

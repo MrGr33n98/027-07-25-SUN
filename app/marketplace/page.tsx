@@ -23,6 +23,8 @@ interface MarketplacePageProps {
     verified?: string
     sortBy?: string
     page?: string
+    categoria?: string
+    especialidade?: string
   }
 }
 

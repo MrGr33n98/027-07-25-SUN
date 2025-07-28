@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
     const filters = searchFiltersSchema.parse({
       query: searchParams.get('q') || undefined,
       location: searchParams.get('location') || undefined,
+      categoria: searchParams.get('categoria') || undefined,
+      especialidade: searchParams.get('especialidade') || undefined,
       minRating: searchParams.get('minRating') ? Number(searchParams.get('minRating')) : undefined,
       verified: searchParams.get('verified') === 'true' ? true : undefined,
       sortBy: searchParams.get('sortBy') || 'relevance',
@@ -46,6 +48,14 @@ export async function GET(request: NextRequest) {
       where.verified = filters.verified
     }
 
+    if (filters.categoria) {
+      where.specialties = { has: filters.categoria }
+    }
+
+    if (filters.especialidade) {
+      where.specialties = { has: filters.especialidade }
+    }
+
     // Build orderBy clause
     let orderBy: any = {}
     switch (filters.sortBy) {
@@ -76,8 +86,8 @@ export async function GET(request: NextRequest) {
       db.companyProfile.count({ where }),
     ])
 
-    // If no companies found, return mock data for development
-    if (companies.length === 0 && filters.page === 1) {
+    // For development, use mock data
+    if (process.env.NODE_ENV === 'development' || companies.length === 0) {
       const mockCompanies = [
         {
           id: 'mock-1',
@@ -89,7 +99,7 @@ export async function GET(request: NextRequest) {
           phone: '(11) 99999-1111',
           email: 'contato@solartech.com.br',
           website: 'https://solartech.com.br',
-          specialties: ['Residencial', 'Comercial', 'Instalação'],
+          specialties: ['residencial', 'comercial', 'instalacao'],
           certifications: ['INMETRO', 'ABNT'],
           yearsExperience: 10,
           projectsCompleted: 250,
@@ -107,7 +117,7 @@ export async function GET(request: NextRequest) {
           phone: '(21) 99999-2222',
           email: 'info@ecosolar.com.br',
           website: 'https://ecosolar.com.br',
-          specialties: ['Sustentabilidade', 'Residencial', 'Consultoria'],
+          specialties: ['residencial', 'consultoria', 'projeto'],
           certifications: ['INMETRO'],
           yearsExperience: 8,
           projectsCompleted: 180,
@@ -124,22 +134,133 @@ export async function GET(request: NextRequest) {
           state: 'MG',
           phone: '(31) 99999-3333',
           email: 'vendas@solarpowermg.com.br',
-          specialties: ['Industrial', 'Comercial', 'Manutenção'],
+          specialties: ['industrial', 'comercial', 'manutencao'],
           certifications: ['INMETRO', 'ABNT', 'ISO'],
           yearsExperience: 12,
           projectsCompleted: 320,
           verified: false,
           rating: 4.4,
           reviewCount: 15
+        },
+        {
+          id: 'mock-4',
+          name: 'Rural Solar',
+          slug: 'rural-solar',
+          description: 'Especialistas em energia solar para propriedades rurais e agronegócio.',
+          city: 'Goiânia',
+          state: 'GO',
+          phone: '(62) 99999-4444',
+          email: 'contato@ruralsolar.com.br',
+          specialties: ['rural', 'projeto', 'financiamento'],
+          certifications: ['INMETRO'],
+          yearsExperience: 6,
+          projectsCompleted: 95,
+          verified: true,
+          rating: 4.7,
+          reviewCount: 12
+        },
+        {
+          id: 'mock-5',
+          name: 'EletroSolar Postos',
+          slug: 'eletrosolar-postos',
+          description: 'Soluções em energia solar para eletropostos e carregadores de veículos elétricos.',
+          city: 'Curitiba',
+          state: 'PR',
+          phone: '(41) 99999-5555',
+          email: 'info@eletrosolar.com.br',
+          specialties: ['eletroposto', 'comercial', 'homologacao'],
+          certifications: ['INMETRO', 'ANEEL'],
+          yearsExperience: 5,
+          projectsCompleted: 45,
+          verified: true,
+          rating: 4.9,
+          reviewCount: 8
+        },
+        {
+          id: 'mock-6',
+          name: 'MonitorSolar Tech',
+          slug: 'monitorsolar-tech',
+          description: 'Especializada em monitoramento e manutenção de sistemas solares.',
+          city: 'Salvador',
+          state: 'BA',
+          phone: '(71) 99999-6666',
+          email: 'suporte@monitorsolar.com.br',
+          specialties: ['monitoramento', 'manutencao', 'consultoria'],
+          certifications: ['INMETRO'],
+          yearsExperience: 7,
+          projectsCompleted: 150,
+          verified: false,
+          rating: 4.3,
+          reviewCount: 20
         }
       ]
 
+      // Apply filters to mock data
+      let filteredCompanies = mockCompanies
+
+      if (filters.query) {
+        filteredCompanies = filteredCompanies.filter(company =>
+          company.name.toLowerCase().includes(filters.query!.toLowerCase()) ||
+          company.description.toLowerCase().includes(filters.query!.toLowerCase()) ||
+          company.specialties.some(s => s.toLowerCase().includes(filters.query!.toLowerCase()))
+        )
+      }
+
+      if (filters.location) {
+        filteredCompanies = filteredCompanies.filter(company =>
+          company.city.toLowerCase().includes(filters.location!.toLowerCase()) ||
+          company.state.toLowerCase().includes(filters.location!.toLowerCase())
+        )
+      }
+
+      if (filters.categoria) {
+        filteredCompanies = filteredCompanies.filter(company =>
+          company.specialties.includes(filters.categoria!)
+        )
+      }
+
+      if (filters.especialidade) {
+        filteredCompanies = filteredCompanies.filter(company =>
+          company.specialties.includes(filters.especialidade!)
+        )
+      }
+
+      if (filters.minRating) {
+        filteredCompanies = filteredCompanies.filter(company =>
+          company.rating >= filters.minRating!
+        )
+      }
+
+      if (filters.verified !== undefined) {
+        filteredCompanies = filteredCompanies.filter(company =>
+          company.verified === filters.verified
+        )
+      }
+
+      // Apply sorting
+      switch (filters.sortBy) {
+        case 'rating':
+          filteredCompanies.sort((a, b) => b.rating - a.rating)
+          break
+        case 'newest':
+          // Mock: assume companies are already in newest order
+          break
+        default:
+          filteredCompanies.sort((a, b) => b.rating - a.rating)
+      }
+
+      // Apply pagination
+      const startIndex = (filters.page - 1) * filters.limit
+      const endIndex = startIndex + filters.limit
+      const paginatedCompanies = filteredCompanies.slice(startIndex, endIndex)
+      const totalPages = Math.ceil(filteredCompanies.length / filters.limit)
+
       return NextResponse.json({
-        data: mockCompanies,
-        total: mockCompanies.length,
-        page: 1,
+        data: paginatedCompanies,
+        total: filteredCompanies.length,
+        page: filters.page,
         limit: filters.limit,
-        totalPages: 1,
+        totalPages,
       })
     }
 

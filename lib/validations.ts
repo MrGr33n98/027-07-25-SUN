@@ -58,6 +58,8 @@ export const searchFiltersSchema = z.object({
   query: z.string().optional(),
   location: z.string().optional(),
   category: z.nativeEnum(ProductCategory).optional(),
+  categoria: z.string().optional(), // Para filtro de categoria de empresa
+  especialidade: z.string().optional(), // Para filtro de especialidade
   minPrice: z.number().min(0).optional(),
   maxPrice: z.number().min(0).optional(),
   minRating: z.number().min(1).max(5).optional(),

@@ -15,6 +15,8 @@ interface MarketplaceContentProps {
     verified?: string
     sortBy?: string
     page?: string
+    categoria?: string
+    especialidade?: string
   }
 }
 
@@ -26,6 +28,8 @@ async function fetchCompanies(filters: SearchFiltersInput) {
   if (filters.minRating) params.set('minRating', filters.minRating.toString())
   if (filters.verified !== undefined) params.set('verified', filters.verified.toString())
   if (filters.sortBy) params.set('sortBy', filters.sortBy)
+  if (filters.categoria) params.set('categoria', filters.categoria)
+  if (filters.especialidade) params.set('especialidade', filters.especialidade)
   params.set('page', filters.page.toString())
   params.set('limit', filters.limit.toString())
 
@@ -45,6 +49,8 @@ export function MarketplaceContent({ searchParams }: MarketplaceContentProps) {
     minRating: searchParams.minRating ? Number(searchParams.minRating) : undefined,
     verified: searchParams.verified === 'true' ? true : undefined,
     sortBy: (searchParams.sortBy as any) || 'relevance',
+    categoria: searchParams.categoria || '',
+    especialidade: searchParams.especialidade || '',
     page: searchParams.page ? Number(searchParams.page) : 1,
     limit: 12,
   })
