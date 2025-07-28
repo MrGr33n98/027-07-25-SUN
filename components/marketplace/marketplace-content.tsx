@@ -22,7 +22,7 @@ interface MarketplaceContentProps {
 
 async function fetchCompanies(filters: SearchFiltersInput) {
   const params = new URLSearchParams()
-  
+
   if (filters.query) params.set('q', filters.query)
   if (filters.location) params.set('location', filters.location)
   if (filters.minRating) params.set('minRating', filters.minRating.toString())
@@ -34,11 +34,11 @@ async function fetchCompanies(filters: SearchFiltersInput) {
   params.set('limit', filters.limit.toString())
 
   const response = await fetch(`/api/companies?${params.toString()}`)
-  
+
   if (!response.ok) {
     throw new Error('Failed to fetch companies')
   }
-  
+
   return response.json()
 }
 
@@ -80,8 +80,8 @@ export function MarketplaceContent({ searchParams }: MarketplaceContentProps) {
     <div className="grid lg:grid-cols-4 gap-8">
       {/* Filters Sidebar */}
       <div className="lg:col-span-1">
-        <SearchFilters 
-          filters={filters} 
+        <SearchFilters
+          filters={filters}
           onFiltersChange={handleFiltersChange}
         />
       </div>
