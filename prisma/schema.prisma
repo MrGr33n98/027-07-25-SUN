@@ -47,6 +47,17 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Security fields for authentication
+  passwordHash              String?
+  emailVerificationToken    String?   @unique
+  emailVerificationExpiry   DateTime?
+  passwordResetToken        String?   @unique
+  passwordResetExpiry       DateTime?
+  failedLoginAttempts       Int       @default(0)
+  accountLockedUntil        DateTime?
+  lastLoginAt               DateTime?
+  lastLoginIP               String?
+
   accounts Account[]
   sessions Session[]
   company  CompanyProfile?
@@ -62,7 +73,13 @@ model User {
   sentSupportMessages SupportMessage[] @relation("SentSupportMessages")
   receivedSupportMessages SupportMessage[] @relation("ReceivedSupportMessages")
   supportMessageReplies SupportMessageReply[]
+  securityEvents SecurityEvent[]
+  authSessions AuthSession[]
 
+  @@index([email])
+  @@index([emailVerificationToken])
+  @@index([passwordResetToken])
+  @@index([accountLockedUntil])
   @@map("users")
 }
 
@@ -524,4 +541,82 @@ enum NotificationType {
   ACCOUNT_ACTIVATED
   ROLE_CHANGED
   SYSTEM_UPDATE
+}
+
+model SecurityEvent {
+  id        String            @id @default(cuid())
+  userId    String?
+  email     String?
+  eventType SecurityEventType
+  success   Boolean
+  ipAddress String
+  userAgent String
+  details   Json?
+  timestamp DateTime          @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([email])
+  @@index([eventType])
+  @@index([timestamp])
+  @@index([ipAddress])
+  @@map("security_events")
+}
+
+model AuthSession {
+  id             String   @id @default(cuid())
+  userId         String
+  token          String   @unique
+  expiresAt      DateTime
+  ipAddress      String
+  userAgent      String
+  createdAt      DateTime @default(now())
+  lastAccessedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+enum SecurityEventType {
+  LOGIN_ATTEMPT
+  REGISTRATION
+  PASSWORD_CHANGE
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETE
+  EMAIL_VERIFICATION
+  ACCOUNT_LOCKOUT
+  ACCOUNT_UNLOCK
+  SUSPICIOUS_ACTIVITY
+  SESSION_CREATED
+  SESSION_EXPIRED
+  TOKEN_GENERATED
+  TOKEN_USED
+}
+
+model SystemLog {
+  id          String   @id @default(cuid())
+  level       String   // LogLevel enum values
+  category    String   // LogCategory enum values
+  message     String
+  userId      String?
+  sessionId   String?
+  ip          String?
+  userAgent   String?
+  metadata    String?  // JSON string
+  requestId   String?
+  duration    Int?     // milliseconds
+  errorStack  String?
+  timestamp   DateTime @default(now())
+
+  @@index([level])
+  @@index([category])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([requestId])
+  @@map("system_logs")
 }

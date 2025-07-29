@@ -1,7 +1,7 @@
 import { Redis } from '@upstash/redis'
 
 // Initialize Redis client
-const redis = process.env.REDIS_URL 
+export const redis = process.env.REDIS_URL 
   ? new Redis({
       url: process.env.REDIS_URL,
       token: process.env.REDIS_TOKEN,
