@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -20,11 +20,14 @@ import {
   Loader2
 } from 'lucide-react'
 import Link from 'next/link'
+import { passwordService } from '@/lib/password-service'
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
   email: z.string().email('Email inválido'),
-  password: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+  password: z.string().refine((password) => passwordService.validatePasswordStrength(password).isValid, {
+    message: passwordService.validatePasswordStrength('').errors.join(', '),
+  }),
   confirmPassword: z.string(),
   userType: z.enum(['USER', 'COMPANY'], {
     required_error: 'Selecione o tipo de conta',
@@ -53,6 +56,43 @@ const signupSchema = z.object({
 
 type SignupFormData = z.infer<typeof signupSchema>
 
+const PasswordStrengthMeter = ({ password }: { password?: string }) => {
+  const strength = useMemo(() => {
+    if (!password) return { score: 0, label: '' };
+    const result = passwordService.validatePasswordStrength(password);
+    let label = 'Muito Fraca';
+    if (result.score >= 80) {
+      label = 'Muito Forte';
+    } else if (result.score >= 60) {
+      label = 'Forte';
+    } else if (result.score >= 40) {
+      label = 'Média';
+    } else if (result.score >= 20) {
+      label = 'Fraca';
+    }
+    return { score: result.score, label };
+  }, [password]);
+
+  const getBarColor = () => {
+    if (strength.score >= 80) return 'bg-green-500';
+    if (strength.score >= 60) return 'bg-yellow-500';
+    if (strength.score >= 40) return 'bg-orange-500';
+    return 'bg-red-500';
+  };
+
+  return (
+    <div className="w-full">
+      <div className="h-2 bg-gray-200 rounded-full">
+        <div
+          className={`h-full rounded-full ${getBarColor()}`}
+          style={{ width: `${strength.score}%` }}
+        ></div>
+      </div>
+      <p className="text-sm text-right text-gray-500 mt-1">{strength.label}</p>
+    </div>
+  );
+};
+
 export function SignupForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -72,6 +112,7 @@ export function SignupForm() {
   })
 
   const userType = watch('userType')
+  const password = watch('password')
 
   const onSubmit = async (data: SignupFormData) => {
     setIsLoading(true)
@@ -195,7 +236,7 @@ export function SignupForm() {
                 <Input
                   {...register('password')}
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres, 1 maiúscula, 1 número, 1 especial"
                   className="pl-10 pr-10"
                 />
                 <button
@@ -206,6 +247,7 @@ export function SignupForm() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              <PasswordStrengthMeter password={password} />
               {errors.password && (
                 <p className="text-red-500 text-sm mt-1">{errors.password.message}</p>
               )}

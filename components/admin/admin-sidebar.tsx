@@ -16,7 +16,8 @@ import {
   FileText,
   Globe,
   Database,
-  Calendar
+  Calendar,
+  Lock
 } from 'lucide-react'
 
 const navigation = [
@@ -64,6 +65,11 @@ const navigation = [
     name: 'Moderação',
     href: '/admin/moderacao',
     icon: Shield,
+  },
+  {
+    name: 'Segurança',
+    href: '/admin/seguranca',
+    icon: Lock,
   },
   {
     name: 'Denúncias',

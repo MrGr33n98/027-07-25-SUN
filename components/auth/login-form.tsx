@@ -30,7 +30,11 @@ export function LoginForm() {
       })
 
       if (result?.error) {
-        setError('Email ou senha incorretos')
+        if (result.error === 'CredentialsSignin') {
+          setError('Email ou senha incorretos');
+        } else {
+          setError(result.error);
+        }
       } else {
         // Get session to check user role
         const session = await getSession()

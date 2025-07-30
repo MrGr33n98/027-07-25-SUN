@@ -138,11 +138,8 @@ export class AuthenticationService {
         };
       }
 
-      console.log('Rate limit passed, validating data...');
-
       // Validate input data
       const validationResult = this.validateRegistrationData(data);
-      console.log('Validation result:', validationResult);
       if (!validationResult.isValid) {
         await securityLogger.logRegistration(
           data.email,
@@ -163,7 +160,6 @@ export class AuthenticationService {
       const existingUser = await this.prisma.user.findUnique({
         where: { email: data.email.toLowerCase() },
       });
-      console.log('Existing user check:', existingUser);
 
       if (existingUser) {
         await securityLogger.logRegistration(
@@ -182,7 +178,6 @@ export class AuthenticationService {
 
       // Hash password
       const passwordHash = await passwordService.hashPassword(data.password);
-      console.log('Password hashed successfully');
 
       // Create user
       const user = await this.prisma.user.create({
@@ -195,18 +190,9 @@ export class AuthenticationService {
           failedLoginAttempts: 0,
         },
       });
-      console.log('User created:', user);
 
-      console.log('About to generate token...');
       // Generate email verification token
-      let tokenResult;
-      try {
-        tokenResult = await tokenService.generateEmailVerificationToken(user.id);
-        console.log('Token generated:', tokenResult);
-      } catch (tokenError) {
-        console.error('Token generation failed:', tokenError);
-        throw tokenError;
-      }
+      const tokenResult = await tokenService.generateEmailVerificationToken(user.id);
 
       // Send verification email
       if (emailService) {
@@ -215,10 +201,8 @@ export class AuthenticationService {
           tokenResult.token,
           user.name || undefined
         );
-        console.log('Email result:', emailResult);
 
         if (!emailResult.success) {
-          console.error('Failed to send verification email:', emailResult.error);
           // Don't fail registration if email fails, but log it
           await securityLogger.logRegistration(
             data.email,
@@ -252,8 +236,6 @@ export class AuthenticationService {
         },
       };
     } catch (error) {
-      console.error('Registration error:', error);
-      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
       await securityLogger.logRegistration(
         data.email,
         false,
@@ -443,7 +425,6 @@ export class AuthenticationService {
         sessionId: session.id,
       };
     } catch (error) {
-      console.error('Login error:', error);
       await securityLogger.logAuthenticationAttempt(
         credentials.email,
         false,
@@ -494,7 +475,6 @@ export class AuthenticationService {
 
       return true;
     } catch (error) {
-      console.error('Logout error:', error);
       return false;
     }
   }
@@ -535,7 +515,6 @@ export class AuthenticationService {
         emailVerified: session.user.emailVerified,
       };
     } catch (error) {
-      console.error('Session validation error:', error);
       return null;
     }
   }  
@@ -655,7 +634,6 @@ export class AuthenticationService {
         nextLockoutDurationMinutes,
       };
     } catch (error) {
-      console.error('Failed to get account lockout status:', error);
       return null;
     }
   }
@@ -760,7 +738,6 @@ export class AuthenticationService {
         user: updatedUser,
       };
     } catch (error) {
-      console.error('Failed to unlock account:', error);
       return {
         success: false,
         error: 'Failed to unlock account. Please try again.',
@@ -834,7 +811,6 @@ export class AuthenticationService {
           : undefined,
       }));
     } catch (error) {
-      console.error('Failed to get locked accounts:', error);
       return null;
     }
   }  /*
@@ -996,7 +972,6 @@ export class AuthenticationService {
             );
 
             if (!emailResult.success) {
-              console.error('Failed to send password reset email:', emailResult.error);
               await securityLogger.logPasswordResetRequest(
                 email,
                 false,
@@ -1022,7 +997,6 @@ export class AuthenticationService {
             { tokenGenerated: true, emailSent: !!emailService }
           );
         } catch (error) {
-          console.error('Password reset request error:', error);
           await securityLogger.logPasswordResetRequest(
             email,
             false,
@@ -1053,7 +1027,6 @@ export class AuthenticationService {
         success: true,
       };
     } catch (error) {
-      console.error('Password reset request error:', error);
       await securityLogger.logPasswordResetRequest(
         email,
         false,
