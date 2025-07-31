@@ -178,7 +178,7 @@ export function LeadsList() {
             </Button>
             
             {Object.entries(statusLabels).map(([status, label]) => {
-              const count = mockLeads.filter(lead => lead.status === status).length
+              const count = leads.filter(lead => lead.status === status).length
               if (count === 0) return null
               
               return (
@@ -296,25 +296,8 @@ export function LeadsList() {
               </CardContent>
             </Card>
           )
-        })}
+        }))}
       </div>
-
-      {filteredLeads.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="w-16 h-16 text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Nenhum lead encontrado
-            </h3>
-            <p className="text-gray-600 text-center">
-              {selectedStatus === 'all' 
-                ? 'Você ainda não recebeu nenhuma solicitação de orçamento.'
-                : `Não há leads com status "${statusLabels[selectedStatus]}".`
-              }
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

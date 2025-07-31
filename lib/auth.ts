@@ -44,12 +44,12 @@ export const authOptions: NextAuthOptions = {
                     return null
                 }
 
-                // TODO: Implement password hashing and verification
-                // For now, we'll use a simple check
-                // const isPasswordValid = await compare(credentials.password, user.password)
+                if (!user.passwordHash) {
+                    console.log('❌ Usuário não possui senha cadastrada (provavelmente login social)')
+                    return null
+                }
 
-                // Temporary: accept any password for demo
-                const isPasswordValid = true
+                const isPasswordValid = await compare(credentials.password, user.passwordHash)
 
                 if (!isPasswordValid) {
                     console.log('❌ Senha inválida')

@@ -1,6 +1,7 @@
 import { db } from './db'
 import { performanceMonitor } from './performance'
 import { logger } from './logger'
+import { cache, CacheKeys, CacheTags } from './cache-manager'
 
 interface QueryOptimizationConfig {
   enableQueryLogging: boolean
@@ -11,7 +12,6 @@ interface QueryOptimizationConfig {
 
 class DatabaseOptimizer {
   private config: QueryOptimizationConfig
-  private queryCache = new Map<string, { data: any; timestamp: number; ttl: number }>()
 
   constructor(config: Partial<QueryOptimizationConfig> = {}) {
     this.config = {
@@ -51,18 +51,12 @@ class DatabaseOptimizer {
     limit?: number
     offset?: number
   }) {
-    const cacheKey = `companies:${JSON.stringify(filters)}`
-    
-    if (this.config.enableQueryCache) {
-      const cached = this.queryCache.get(cacheKey)
-      if (cached && Date.now() - cached.timestamp < cached.ttl) {
-        return cached.data
-      }
-    }
+    const cacheKey = CacheKeys.companies.list(filters)
+    const ttl = 300 // 5 minutes
 
-    const result = await performanceMonitor.measureDbQuery('find_companies_optimized', async () => {
+    const fetchFn = () => performanceMonitor.measureDbQuery('find_companies_optimized', async () => {
       const where: any = {}
-      
+
       if (filters.city) where.city = filters.city
       if (filters.state) where.state = filters.state
       if (filters.verified !== undefined) where.verified = filters.verified
@@ -72,7 +66,7 @@ class DatabaseOptimizer {
         }
       }
 
-      return db.companyProfile.findMany({
+      return await db.companyProfile.findMany({
         where,
         select: {
           id: true,
@@ -100,16 +94,14 @@ class DatabaseOptimizer {
       })
     })
 
-    // Cache the result
     if (this.config.enableQueryCache) {
-      this.queryCache.set(cacheKey, {
-        data: result,
-        timestamp: Date.now(),
-        ttl: 300000, // 5 minutes
+      return cache.get(cacheKey, fetchFn, {
+        ttl,
+        tags: [CacheTags.COMPANIES]
       })
     }
 
-    return result
+    return fetchFn()
   }
 
   // Optimized product queries with proper indexing
@@ -122,18 +114,12 @@ class DatabaseOptimizer {
     limit?: number
     offset?: number
   }) {
-    const cacheKey = `products:${JSON.stringify(filters)}`
-    
-    if (this.config.enableQueryCache) {
-      const cached = this.queryCache.get(cacheKey)
-      if (cached && Date.now() - cached.timestamp < cached.ttl) {
-        return cached.data
-      }
-    }
+    const cacheKey = CacheKeys.products.list(filters)
+    const ttl = 600 // 10 minutes
 
-    const result = await performanceMonitor.measureDbQuery('find_products_optimized', async () => {
+    const fetchFn = () => performanceMonitor.measureDbQuery('find_products_optimized', async () => {
       const where: any = { status: 'APPROVED' }
-      
+
       if (filters.category) where.category = filters.category
       if (filters.companyId) where.companyId = filters.companyId
       if (filters.inStock !== undefined) where.inStock = filters.inStock
@@ -143,7 +129,7 @@ class DatabaseOptimizer {
         if (filters.maxPrice !== undefined) where.price.lte = filters.maxPrice
       }
 
-      return db.product.findMany({
+      return await db.product.findMany({
         where,
         select: {
           id: true,
@@ -179,16 +165,14 @@ class DatabaseOptimizer {
       })
     })
 
-    // Cache the result
     if (this.config.enableQueryCache) {
-      this.queryCache.set(cacheKey, {
-        data: result,
-        timestamp: Date.now(),
-        ttl: 600000, // 10 minutes
+      return cache.get(cacheKey, fetchFn, {
+        ttl,
+        tags: [CacheTags.PRODUCTS]
       })
     }
 
-    return result
+    return fetchFn()
   }
 
   // Batch operations for better performance
@@ -256,12 +240,7 @@ class DatabaseOptimizer {
         status: 'healthy',
         connectionTime,
         tableStats,
-        slowQueries: slowQueries.length,
-        recommendations: this.generateOptimizationRecommendations(tableStats, slowQueries),
-        cacheStats: {
-          size: this.queryCache.size,
-          hitRate: this.calculateCacheHitRate(),
-        },
+        slowQueries: slowQueries.length
       }
     } catch (error) {
       logger.error('Database health check failed', error)
@@ -301,64 +280,6 @@ class DatabaseOptimizer {
     }
   }
 
-  private generateOptimizationRecommendations(
-    tableStats: any[],
-    slowQueries: any[]
-  ): string[] {
-    const recommendations: string[] = []
-
-    // Check for large tables without proper indexing
-    const largeTables = tableStats.filter(stat => stat.rowCount > 10000)
-    if (largeTables.length > 0) {
-      recommendations.push(
-        `Consider adding indexes to large tables: ${largeTables.map(t => t.tableName).join(', ')}`
-      )
-    }
-
-    // Check for slow queries
-    if (slowQueries.length > 0) {
-      recommendations.push(
-        `${slowQueries.length} slow queries detected. Consider query optimization or caching.`
-      )
-    }
-
-    // Cache recommendations
-    if (this.queryCache.size > 1000) {
-      recommendations.push('Query cache is large. Consider implementing cache eviction policies.')
-    }
-
-    return recommendations
-  }
-
-  private calculateCacheHitRate(): number {
-    // This is a simplified calculation - in production you'd want more sophisticated metrics
-    return this.queryCache.size > 0 ? 0.85 : 0 // Placeholder
-  }
-
-  // Clear expired cache entries
-  clearExpiredCache() {
-    const now = Date.now()
-    for (const [key, value] of this.queryCache.entries()) {
-      if (now - value.timestamp > value.ttl) {
-        this.queryCache.delete(key)
-      }
-    }
-  }
-
-  // Get cache statistics
-  getCacheStats() {
-    return {
-      size: this.queryCache.size,
-      keys: Array.from(this.queryCache.keys()),
-    }
-  }
 }
 
 export const databaseOptimizer = new DatabaseOptimizer()
-
-// Clean up cache every 5 minutes
-if (typeof setInterval !== 'undefined') {
-  setInterval(() => {
-    databaseOptimizer.clearExpiredCache()
-  }, 300000)
-}

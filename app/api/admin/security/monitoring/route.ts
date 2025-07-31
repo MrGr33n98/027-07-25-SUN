@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { securityMonitoring } from '@/lib/security-monitoring'
 import { securityScheduler } from '@/lib/security-monitoring-scheduler'
 import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth-options'
+import { authOptions } from '@/lib/auth'
 import { logger, LogCategory } from '@/lib/logger'
 
 /**

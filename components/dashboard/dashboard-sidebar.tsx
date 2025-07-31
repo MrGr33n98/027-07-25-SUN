@@ -11,7 +11,8 @@ import {
   BarChart3,
   Settings,
   Users,
-  MessageSquare
+  MessageSquare,
+  FileText
 } from 'lucide-react'
 
 const navigation = [
@@ -44,6 +45,11 @@ const navigation = [
     name: 'Leads',
     href: '/dashboard/leads',
     icon: Users,
+  },
+  {
+    name: 'Orçamentos',
+    href: '/dashboard/orcamentos',
+    icon: FileText,
   },
   {
     name: 'Mensagens',

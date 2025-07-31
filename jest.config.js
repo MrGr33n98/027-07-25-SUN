@@ -8,52 +8,23 @@ const createJestConfig = nextJest({
 // Add any custom config to be passed to Jest
 const customJestConfig = {
     setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-    testEnvironment: 'node',
-    testMatch: [
-        '**/__tests__/**/*.(ts|tsx|js)',
-        '**/*.(test|spec).(ts|tsx|js)'
-    ],
-    moduleNameMapper: {
+    testEnvironment: 'jest-environment-jsdom',
+    testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
+    moduleNameMapping: {
         '^@/(.*)$': '<rootDir>/$1',
     },
-    transformIgnorePatterns: [
-        'node_modules/(?!(@auth/prisma-adapter)/)',
-    ],
     collectCoverageFrom: [
-        'lib/**/*.{ts,tsx}',
-        'app/**/*.{ts,tsx}',
+        'app/**/*.{js,jsx,ts,tsx}',
+        'components/**/*.{js,jsx,ts,tsx}',
+        'lib/**/*.{js,jsx,ts,tsx}',
         '!**/*.d.ts',
         '!**/node_modules/**',
+        '!**/.next/**',
+        '!**/coverage/**',
     ],
-    // Use different test environments based on file patterns
-    projects: [{
-            displayName: 'jsdom',
-            testEnvironment: 'jsdom',
-            testMatch: [
-                '**/__tests__/components/**/*.(ts|tsx)',
-                '**/__tests__/app/**/*.(ts|tsx)',
-                '**/__tests__/integration/**/*.(ts|tsx)',
-            ],
-            setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-            moduleNameMapper: {
-                '^@/(.*)$': '<rootDir>/$1',
-            },
-        },
-        {
-            displayName: 'node',
-            testEnvironment: 'node',
-            testMatch: [
-                '**/__tests__/lib/**/*.(ts|tsx)',
-                '**/__tests__/api/**/*.(ts|tsx)',
-            ],
-            setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-            moduleNameMapper: {
-                '^@/(.*)$': '<rootDir>/$1',
-            },
-            transformIgnorePatterns: [
-                'node_modules/(?!(@auth/prisma-adapter)/)',
-            ],
-        },
+    testMatch: [
+        '<rootDir>/**/__tests__/**/*.{js,jsx,ts,tsx}',
+        '<rootDir>/**/*.{test,spec}.{js,jsx,ts,tsx}',
     ],
 }
 

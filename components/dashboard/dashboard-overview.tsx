@@ -1,216 +1,313 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { db } from "@/lib/db"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { 
+  Package, 
+  Users, 
+  MessageSquare, 
+  TrendingUp, 
   Eye,
-  Users,
+  Plus,
   Star,
-  Package,
-  TrendingUp,
-  MessageSquare,
-  Calendar,
-  Award
-} from 'lucide-react'
-import Link from 'next/link'
-import { CompanyProfile } from '@prisma/client'
+  Clock,
+  CheckCircle
+} from "lucide-react"
+import Link from "next/link"
 
 interface DashboardOverviewProps {
-  company: CompanyProfile & {
-    user: any
+  company: {
+    id: string
+    name: string
+    email: string
+    phone?: string | null
+    description?: string | null
+    website?: string | null
+    address?: string | null
+    city?: string | null
+    state?: string | null
+    cnpj?: string | null
+    certifications?: string[] | null
+    userId: string
+    status: string
+    createdAt: Date
+    updatedAt: Date
   }
 }
 
-export function DashboardOverview({ company }: DashboardOverviewProps) {
-  // Mock data for demonstration
-  const stats = {
-    views: 1250,
-    leads: 23,
-    rating: company.rating,
-    products: 8,
-    growth: 12.5,
-    messages: 5,
-    projects: company.projectsCompleted,
+async function getDashboardStats(companyId: string) {
+  // Buscar estatísticas da empresa
+  const [productsCount, leadsCount, messagesCount, reviewsCount] = await Promise.all([
+    db.product.count({ where: { companyId } }),
+    db.lead.count({ where: { companyId } }),
+    // Contar mensagens recebidas pela empresa através do relacionamento User
+    db.message.count({
+      where: {
+        receiver: {
+          company: {
+            id: companyId
+          }
+        }
+      }
+    }),
+    db.review.count({ where: { companyId } })
+  ])
+
+  // Buscar produtos recentes
+  const recentProducts = await db.product.findMany({
+    where: { companyId },
+    orderBy: { createdAt: 'desc' },
+    take: 3,
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      createdAt: true
+    }
+  })
+
+  // Buscar leads recentes
+  const recentLeads = await db.lead.findMany({
+    where: { companyId },
+    orderBy: { createdAt: 'desc' },
+    take: 3
+  })
+
+  return {
+    productsCount,
+    leadsCount,
+    messagesCount,
+    reviewsCount,
+    recentProducts,
+    recentLeads
+  }
+}
+
+export async function DashboardOverview({ company }: DashboardOverviewProps) {
+  const stats = await getDashboardStats(company.id)
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'APPROVED':
+        return <Badge variant="default">Aprovado</Badge>
+      case 'PENDING':
+        return <Badge variant="outline">Pendente</Badge>
+      case 'REJECTED':
+        return <Badge variant="secondary">Rejeitado</Badge>
+      case 'FLAGGED':
+        return <Badge variant="destructive">Sinalizado</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
   }
 
-  const recentActivity = [
-    {
-      id: 1,
-      type: 'lead',
-      message: 'Nova solicitação de orçamento recebida',
-      time: '2 horas atrás',
-      icon: Users,
-    },
-    {
-      id: 2,
-      type: 'review',
-      message: 'Nova avaliação 5 estrelas recebida',
-      time: '1 dia atrás',
-      icon: Star,
-    },
-    {
-      id: 3,
-      type: 'view',
-      message: 'Seu perfil foi visualizado 50 vezes hoje',
-      time: '2 dias atrás',
-      icon: Eye,
-    },
-  ]
+  const getLeadStatusBadge = (status: string) => {
+    switch (status) {
+      case 'NEW':
+        return <Badge variant="default">Novo</Badge>
+      case 'CONTACTED':
+        return <Badge variant="outline">Contatado</Badge>
+      case 'PROPOSAL_SENT':
+        return <Badge variant="secondary">Proposta Enviada</Badge>
+      case 'NEGOTIATING':
+        return <Badge>Negociando</Badge>
+      case 'CLOSED':
+        return <Badge>Fechado</Badge>
+      case 'LOST':
+        return <Badge variant="destructive">Perdido</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
+  }
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Cards de Estatísticas */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Visualizações</CardTitle>
-            <Eye className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.views.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              +20.1% em relação ao mês passado
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Leads</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.leads}</div>
-            <p className="text-xs text-muted-foreground">
-              +{stats.growth}% em relação ao mês passado
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avaliação</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.rating.toFixed(1)}</div>
-            <p className="text-xs text-muted-foreground">
-              Baseado em {company.reviewCount} avaliações
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Produtos</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Total de Produtos
+            </CardTitle>
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.products}</div>
+            <div className="text-2xl font-bold">{stats.productsCount}</div>
             <p className="text-xs text-muted-foreground">
               Produtos cadastrados
             </p>
           </CardContent>
         </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Leads Recebidos
+            </CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.leadsCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Potenciais clientes
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Mensagens
+            </CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.messagesCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Mensagens recebidas
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Avaliações
+            </CardTitle>
+            <Star className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.reviewsCount}</div>
+            <p className="text-xs text-muted-foreground">
+              Reviews da empresa
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
+      <div className="grid gap-4 md:grid-cols-2">
+        {/* Produtos Recentes */}
         <Card>
           <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
+            <CardTitle>Produtos Recentes</CardTitle>
+            <CardDescription>
+              Últimos produtos adicionados ao seu catálogo
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {recentActivity.map((activity) => {
-                const Icon = activity.icon
-                return (
-                  <div key={activity.id} className="flex items-center space-x-4">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                      <Icon className="w-4 h-4 text-orange-600" />
+              {stats.recentProducts.length > 0 ? (
+                stats.recentProducts.map((product) => (
+                  <div key={product.id} className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {product.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(product.createdAt).toLocaleDateString('pt-BR')}
+                      </p>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">{activity.message}</p>
-                      <p className="text-xs text-gray-500">{activity.time}</p>
-                    </div>
+                    {getStatusBadge(product.status)}
                   </div>
-                )
-              })}
+                ))
+              ) : (
+                <div className="text-center py-4">
+                  <Package className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum produto cadastrado
+                  </p>
+                  <Button asChild size="sm" className="mt-2">
+                    <Link href="/dashboard/produtos/novo">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar Produto
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
+        {/* Leads Recentes */}
         <Card>
           <CardHeader>
-            <CardTitle>Ações Rápidas</CardTitle>
+            <CardTitle>Leads Recentes</CardTitle>
+            <CardDescription>
+              Últimas solicitações de orçamento recebidas
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <Button asChild className="h-20 flex-col">
-                <Link href="/dashboard/produtos/novo">
-                  <Package className="w-6 h-6 mb-2" />
-                  Adicionar Produto
-                </Link>
-              </Button>
-              
-              <Button asChild variant="outline" className="h-20 flex-col">
-                <Link href="/dashboard/projetos/novo">
-                  <Calendar className="w-6 h-6 mb-2" />
-                  Novo Projeto
-                </Link>
-              </Button>
-              
-              <Button asChild variant="outline" className="h-20 flex-col">
-                <Link href="/dashboard/perfil">
-                  <Award className="w-6 h-6 mb-2" />
-                  Editar Perfil
-                </Link>
-              </Button>
-              
-              <Button asChild variant="outline" className="h-20 flex-col">
-                <Link href="/dashboard/mensagens">
-                  <MessageSquare className="w-6 h-6 mb-2" />
-                  Ver Mensagens
-                </Link>
-              </Button>
+            <div className="space-y-4">
+              {stats.recentLeads.length > 0 ? (
+                stats.recentLeads.map((lead) => (
+                  <div key={lead.id} className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {lead.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {lead.email}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(lead.createdAt).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    {getLeadStatusBadge(lead.status)}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-4">
+                  <Users className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum lead recebido
+                  </p>
+                  <Button asChild size="sm" className="mt-2">
+                    <Link href="/dashboard/leads">
+                      <Eye className="h-4 w-4 mr-2" />
+                      Ver Leads
+                    </Link>
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Company Status */}
+      {/* Ações Rápidas */}
       <Card>
         <CardHeader>
-          <CardTitle>Status da Empresa</CardTitle>
+          <CardTitle>Ações Rápidas</CardTitle>
+          <CardDescription>
+            Acesso rápido às principais funcionalidades
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-3xl font-bold text-green-600 mb-2">
-                {company.verified ? 'Verificada' : 'Pendente'}
-              </div>
-              <p className="text-sm text-gray-600">Status de Verificação</p>
-              {!company.verified && (
-                <Button size="sm" className="mt-2" asChild>
-                  <Link href="/dashboard/verificacao">
-                    Solicitar Verificação
-                  </Link>
-                </Button>
-              )}
-            </div>
-            
-            <div className="text-center">
-              <div className="text-3xl font-bold text-orange-600 mb-2">
-                {stats.projects}
-              </div>
-              <p className="text-sm text-gray-600">Projetos Concluídos</p>
-            </div>
-            
-            <div className="text-center">
-              <div className="text-3xl font-bold text-blue-600 mb-2">
-                {company.yearsExperience}
-              </div>
-              <p className="text-sm text-gray-600">Anos de Experiência</p>
-            </div>
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
+            <Button asChild variant="outline" className="justify-start">
+              <Link href="/dashboard/produtos/novo">
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Produto
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="justify-start">
+              <Link href="/dashboard/perfil">
+                <Eye className="mr-2 h-4 w-4" />
+                Ver Perfil
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="justify-start">
+              <Link href="/dashboard/leads">
+                <Users className="mr-2 h-4 w-4" />
+                Gerenciar Leads
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="justify-start">
+              <Link href="/dashboard/mensagens">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Ver Mensagens
+              </Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

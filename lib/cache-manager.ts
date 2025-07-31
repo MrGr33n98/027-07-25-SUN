@@ -240,12 +240,26 @@ export const CacheKeys = {
   },
   users: {
     profile: (id: string) => `users:profile:${id}`,
-    preferences: (id: string) => `users:preferences:${id}`
+    preferences: (id: string) => `users:preferences:${id}`,
+    session: (sessionId: string) => `users:session:${sessionId}`,
+    loginAttempts: (email: string) => `users:login_attempts:${email}`,
+    lockout: (email: string) => `users:lockout:${email}`,
+    emailVerification: (token: string) => `users:email_verification:${token}`,
+    passwordReset: (token: string) => `users:password_reset:${token}`
+  },
+  auth: {
+    rateLimits: (ip: string, action: string) => `auth:rate_limit:${action}:${ip}`,
+    securityEvents: (userId: string) => `auth:security_events:${userId}`,
+    failedAttempts: (email: string) => `auth:failed_attempts:${email}`,
+    accountLockout: (email: string) => `auth:lockout:${email}`,
+    sessionValidation: (sessionId: string) => `auth:session_validation:${sessionId}`
   },
   admin: {
     stats: () => 'admin:stats',
     users: (filters: any) => `admin:users:${JSON.stringify(filters)}`,
-    notifications: (filters: any) => `admin:notifications:${JSON.stringify(filters)}`
+    notifications: (filters: any) => `admin:notifications:${JSON.stringify(filters)}`,
+    securityDashboard: () => 'admin:security_dashboard',
+    performanceMetrics: () => 'admin:performance_metrics'
   }
 }
 
@@ -257,5 +271,10 @@ export const CacheTags = {
   ADMIN: 'admin',
   CATEGORIES: 'categories',
   REVIEWS: 'reviews',
-  APPOINTMENTS: 'appointments'
+  APPOINTMENTS: 'appointments',
+  AUTH: 'auth',
+  SESSIONS: 'sessions',
+  SECURITY_EVENTS: 'security_events',
+  RATE_LIMITS: 'rate_limits',
+  PERFORMANCE: 'performance'
 }

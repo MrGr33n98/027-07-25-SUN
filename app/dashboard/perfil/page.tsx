@@ -6,11 +6,11 @@ import { db } from '@/lib/db'
 import { CompanyProfileForm } from '@/components/dashboard/company-profile-form'
 
 export const metadata: Metadata = {
-  title: 'Perfil da Empresa - Dashboard',
-  description: 'Gerencie as informações do seu perfil empresarial',
+  title: 'Perfil da Empresa - Dashboard SolarConnect',
+  description: 'Gerencie as informações da sua empresa',
 }
 
-async function getCompanyProfile(userId: string) {
+async function getCompanyData(userId: string) {
   const company = await db.companyProfile.findUnique({
     where: { userId },
     include: {
@@ -32,18 +32,22 @@ export default async function CompanyProfilePage() {
     redirect('/')
   }
 
-  const company = await getCompanyProfile(session.user.id)
+  const company = await getCompanyData(session.user.id)
+
+  if (!company) {
+    redirect('/dashboard/perfil/criar')
+  }
 
   return (
-    <div>
-      <div className="mb-8">
+    <div className="space-y-6">
+      <div>
         <h1 className="text-2xl font-bold text-gray-900">Perfil da Empresa</h1>
         <p className="text-gray-600">
-          Mantenha as informações da sua empresa sempre atualizadas
+          Gerencie as informações da sua empresa no marketplace
         </p>
       </div>
 
-      <CompanyProfileForm company={company} userId={session.user.id} />
+      <CompanyProfileForm company={company} />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { unstable_cache } from 'next/cache'
-import { prisma } from '@/lib/prisma'
+import { db as prisma } from '@/lib/db'
 
 // Cache tags for revalidation
 export const CACHE_TAGS = {

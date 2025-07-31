@@ -1,347 +1,214 @@
-'use client'
+"use client"
 
-import { useState, useRef, useCallback } from 'react'
-import { Button } from '@/components/ui/button'
-import { Progress } from '@/components/ui/progress'
-import { useImageUpload, validateImageFile, ImageUploadOptions } from '@/lib/image-upload'
-import { Upload, X, Image as ImageIcon, AlertCircle } from 'lucide-react'
-import Image from 'next/image'
-import { cn } from '@/lib/utils'
+import { useState } from "react"
+import Image from "next/image"
+import { Card, CardContent } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { 
+  Upload, 
+  X, 
+  ImageIcon, 
+  Loader2,
+  AlertCircle 
+} from "lucide-react"
+import { useDropzone } from "react-dropzone"
+import { cn } from "@/lib/utils"
 
 interface ImageUploadProps {
-  onUpload: (url: string, thumbnailUrl?: string) => void
-  onError?: (error: string) => void
-  folder?: string
-  options?: ImageUploadOptions
-  className?: string
+  value?: string | string[]
+  onChange: (value: string | string[]) => void
+  onUpload?: (files: File[]) => Promise<string[]>
   multiple?: boolean
   maxFiles?: number
-  preview?: boolean
+  maxSize?: number
+  accept?: { [key: string]: string[] }
   disabled?: boolean
-  accept?: string
+  className?: string
+  aspectRatio?: "square" | "video" | "auto"
   placeholder?: string
 }
 
 export function ImageUpload({
+  value,
+  onChange,
   onUpload,
-  onError,
-  folder = 'uploads',
-  options,
-  className,
   multiple = false,
-  maxFiles = 5,
-  preview = true,
+  maxFiles = 1,
+  maxSize = 4 * 1024 * 1024, // 4MB
+  accept = { 'image/*': ['.png', '.jpg', '.jpeg', '.webp'] },
   disabled = false,
-  accept = 'image/*',
-  placeholder = 'Clique para fazer upload ou arraste uma imagem'
+  className,
+  aspectRatio = "auto",
+  placeholder = "Upload de imagem"
 }: ImageUploadProps) {
-  const [dragActive, setDragActive] = useState(false)
-  const [uploadedImages, setUploadedImages] = useState<Array<{
-    url: string
-    thumbnailUrl?: string
-    name: string
-  }>>([])
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  
-  const { uploadImage, uploading, progress } = useImageUpload()
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleFiles = useCallback(async (files: FileList) => {
-    if (disabled) return
+  const images = Array.isArray(value) ? value : value ? [value] : []
 
-    const fileArray = Array.from(files)
-    
-    // Check max files limit
-    if (multiple && uploadedImages.length + fileArray.length > maxFiles) {
-      const errorMsg = `Máximo de ${maxFiles} arquivos permitidos`
-      setError(errorMsg)
-      onError?.(errorMsg)
-      return
-    }
-
-    for (const file of fileArray) {
-      // Validate file
-      const validationError = validateImageFile(file, options)
-      if (validationError) {
-        setError(validationError)
-        onError?.(validationError)
-        continue
-      }
-
-      try {
-        setError(null)
-        const result = await uploadImage(file, folder, options)
-        
-        const newImage = {
-          url: result.url,
-          thumbnailUrl: result.thumbnailUrl,
-          name: file.name
-        }
-
-        if (multiple) {
-          setUploadedImages(prev => [...prev, newImage])
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept,
+    maxFiles,
+    maxSize,
+    disabled: disabled || uploading,
+    onDrop: async (acceptedFiles, rejectedFiles) => {
+      setError(null)
+      
+      if (rejectedFiles.length > 0) {
+        const rejection = rejectedFiles[0]
+        if (rejection.errors[0]?.code === 'file-too-large') {
+          setError(`Arquivo muito grande. Tamanho máximo: ${maxSize / (1024 * 1024)}MB`)
+        } else if (rejection.errors[0]?.code === 'file-invalid-type') {
+          setError('Tipo de arquivo não suportado. Use PNG, JPG, JPEG ou WebP')
         } else {
-          setUploadedImages([newImage])
+          setError('Erro no upload do arquivo')
         }
+        return
+      }
 
-        onUpload(result.url, result.thumbnailUrl)
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : 'Erro ao fazer upload'
-        setError(errorMsg)
-        onError?.(errorMsg)
+      if (acceptedFiles.length === 0) return
+
+      if (!onUpload) {
+        // If no upload handler, just create object URLs for preview
+        const urls = acceptedFiles.map(file => URL.createObjectURL(file))
+        if (multiple) {
+          onChange([...images, ...urls])
+        } else {
+          onChange(urls[0])
+        }
+        return
+      }
+
+      setUploading(true)
+      try {
+        const uploadedUrls = await onUpload(acceptedFiles)
+        if (multiple) {
+          onChange([...images, ...uploadedUrls])
+        } else {
+          onChange(uploadedUrls[0])
+        }
+      } catch (error) {
+        console.error('Upload error:', error)
+        setError('Erro no upload. Tente novamente.')
+      } finally {
+        setUploading(false)
       }
     }
-  }, [uploadImage, folder, options, onUpload, onError, disabled, multiple, maxFiles, uploadedImages.length])
+  })
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
+  const removeImage = (index: number) => {
+    if (multiple) {
+      const newImages = images.filter((_, i) => i !== index)
+      onChange(newImages)
+    } else {
+      onChange('')
     }
-  }, [])
+  }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFiles(e.dataTransfer.files)
+  const getAspectRatioClass = () => {
+    switch (aspectRatio) {
+      case "square":
+        return "aspect-square"
+      case "video":
+        return "aspect-video"
+      default:
+        return "aspect-auto"
     }
-  }, [handleFiles])
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault()
-    if (e.target.files && e.target.files[0]) {
-      handleFiles(e.target.files)
-    }
-  }, [handleFiles])
-
-  const removeImage = useCallback((index: number) => {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index))
-  }, [])
-
-  const openFileDialog = useCallback(() => {
-    if (!disabled) {
-      inputRef.current?.click()
-    }
-  }, [disabled])
+  }
 
   return (
-    <div className={cn('space-y-4', className)}>
+    <div className={cn("space-y-4", className)}>
       {/* Upload Area */}
       <div
+        {...getRootProps()}
         className={cn(
-          'relative border-2 border-dashed rounded-lg p-6 transition-colors cursor-pointer',
-          dragActive 
-            ? 'border-orange-500 bg-orange-50' 
-            : 'border-gray-300 hover:border-gray-400',
-          disabled && 'opacity-50 cursor-not-allowed',
-          uploading && 'pointer-events-none'
+          "border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors",
+          isDragActive ? "border-primary bg-primary/5" : "border-muted-foreground/25",
+          disabled && "cursor-not-allowed opacity-50",
+          "hover:border-primary hover:bg-primary/5"
         )}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={openFileDialog}
       >
-        <input
-          ref={inputRef}
-          type="file"
-          multiple={multiple}
-          accept={accept}
-          onChange={handleChange}
-          className="hidden"
-          disabled={disabled}
-        />
-
-        <div className="flex flex-col items-center justify-center text-center">
+        <input {...getInputProps()} />
+        
+        <div className="flex flex-col items-center justify-center gap-2 text-center">
           {uploading ? (
-            <>
-              <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
-                <Upload className="w-6 h-6 text-orange-600 animate-pulse" />
-              </div>
-              <p className="text-sm text-gray-600 mb-2">Fazendo upload...</p>
-              <div className="w-full max-w-xs">
-                <Progress value={progress} className="h-2" />
-                <p className="text-xs text-gray-500 mt-1">{progress}%</p>
-              </div>
-            </>
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
           ) : (
-            <>
-              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <ImageIcon className="w-6 h-6 text-gray-400" />
-              </div>
-              <p className="text-sm text-gray-600 mb-2">{placeholder}</p>
-              <p className="text-xs text-gray-500">
-                PNG, JPG, WebP até {options?.maxSize ? Math.round(options.maxSize / 1024 / 1024) : 5}MB
-              </p>
-              {multiple && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Máximo {maxFiles} arquivos
-                </p>
-              )}
-            </>
+            <Upload className="w-8 h-8 text-muted-foreground" />
           )}
+          
+          <div>
+            <p className="text-sm font-medium">
+              {uploading ? 'Enviando...' : placeholder}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {isDragActive
+                ? 'Solte os arquivos aqui...'
+                : `PNG, JPG, WebP até ${maxSize / (1024 * 1024)}MB`}
+            </p>
+            {maxFiles > 1 && (
+              <p className="text-xs text-muted-foreground">
+                Máximo {maxFiles} arquivos
+              </p>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Error Message */}
+      {/* Error Display */}
       {error && (
-        <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
+        <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 rounded-md">
           <AlertCircle className="w-4 h-4" />
-          <span className="text-sm">{error}</span>
+          {error}
         </div>
       )}
 
-      {/* Preview */}
-      {preview && uploadedImages.length > 0 && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-900">
-            Imagens carregadas ({uploadedImages.length})
-          </h4>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {uploadedImages.map((image, index) => (
-              <div key={index} className="relative group">
-                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+      {/* Preview Images */}
+      {images.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {images.map((imageUrl, index) => (
+            <Card key={index} className="overflow-hidden">
+              <CardContent className="p-0 relative">
+                <div className={cn("relative", getAspectRatioClass())}>
                   <Image
-                    src={image.thumbnailUrl || image.url}
-                    alt={image.name}
-                    width={200}
-                    height={200}
-                    className="w-full h-full object-cover"
+                    src={imageUrl}
+                    alt={`Upload ${index + 1}`}
+                    fill
+                    className="object-cover"
                   />
                 </div>
                 
-                {/* Remove Button */}
-                <button
+                <Button
+                  size="icon"
+                  variant="destructive"
+                  className="absolute top-2 right-2 w-6 h-6"
                   onClick={(e) => {
                     e.stopPropagation()
                     removeImage(index)
                   }}
-                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                  disabled={disabled || uploading}
                 >
                   <X className="w-3 h-3" />
-                </button>
-
-                {/* Image Name */}
-                <p className="text-xs text-gray-500 mt-1 truncate" title={image.name}>
-                  {image.name}
-                </p>
-              </div>
-            ))}
-          </div>
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       )}
 
-      {/* Upload Button (Alternative) */}
-      {!uploading && uploadedImages.length === 0 && (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={openFileDialog}
-          disabled={disabled}
-          className="w-full"
-        >
-          <Upload className="w-4 h-4 mr-2" />
-          Selecionar {multiple ? 'Imagens' : 'Imagem'}
-        </Button>
-      )}
-    </div>
-  )
-}
-
-// Specialized components for common use cases
-export function ProfileImageUpload({
-  onUpload,
-  currentImage,
-  ...props
-}: Omit<ImageUploadProps, 'multiple' | 'maxFiles'> & {
-  currentImage?: string
-}) {
-  return (
-    <div className="space-y-4">
-      {currentImage && (
-        <div className="flex justify-center">
-          <div className="w-24 h-24 rounded-full overflow-hidden bg-gray-100">
-            <Image
-              src={currentImage}
-              alt="Profile"
-              width={96}
-              height={96}
-              className="w-full h-full object-cover"
-            />
-          </div>
+      {/* Upload Info */}
+      {images.length > 0 && multiple && (
+        <div className="flex justify-between items-center text-sm text-muted-foreground">
+          <span>{images.length} de {maxFiles} imagens</span>
+          {images.length < maxFiles && (
+            <Badge variant="outline">
+              <ImageIcon className="w-3 h-3 mr-1" />
+              Adicionar mais
+            </Badge>
+          )}
         </div>
       )}
-      
-      <ImageUpload
-        {...props}
-        onUpload={onUpload}
-        multiple={false}
-        maxFiles={1}
-        folder="profiles"
-        options={{
-          maxSize: 2 * 1024 * 1024, // 2MB
-          maxWidth: 400,
-          maxHeight: 400,
-          generateThumbnail: true,
-          thumbnailSize: 150,
-          ...props.options
-        }}
-        placeholder="Clique para alterar foto do perfil"
-      />
     </div>
-  )
-}
-
-export function ProductImageUpload({
-  onUpload,
-  ...props
-}: ImageUploadProps) {
-  return (
-    <ImageUpload
-      {...props}
-      onUpload={onUpload}
-      multiple={true}
-      maxFiles={10}
-      folder="products"
-      options={{
-        maxSize: 5 * 1024 * 1024, // 5MB
-        maxWidth: 1200,
-        maxHeight: 1200,
-        generateThumbnail: true,
-        thumbnailSize: 300,
-        ...props.options
-      }}
-      placeholder="Adicione fotos do produto (até 10 imagens)"
-    />
-  )
-}
-
-export function CompanyGalleryUpload({
-  onUpload,
-  ...props
-}: ImageUploadProps) {
-  return (
-    <ImageUpload
-      {...props}
-      onUpload={onUpload}
-      multiple={true}
-      maxFiles={20}
-      folder="companies/gallery"
-      options={{
-        maxSize: 8 * 1024 * 1024, // 8MB
-        maxWidth: 1920,
-        maxHeight: 1080,
-        generateThumbnail: true,
-        thumbnailSize: 400,
-        ...props.options
-      }}
-      placeholder="Adicione fotos da empresa e projetos (até 20 imagens)"
-    />
   )
 }

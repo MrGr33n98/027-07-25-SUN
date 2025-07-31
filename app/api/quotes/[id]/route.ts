@@ -1,8 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { db } from '@/lib/db'
+import { z } from 'zod'
 
+// Schema de validação para atualização de orçamento
+const updateQuoteSchema = z.object({
+  title: z.string().min(5, 'Título deve ter pelo menos 5 caracteres').optional(),
+  description: z.string().optional(),
+  totalValue: z.number().positive('Valor total deve ser positivo').optional(),
+  validUntil: z.string().refine((date) => {
+    const validUntilDate = new Date(date)
+    return validUntilDate > new Date()
+  }, 'Data de validade deve ser futura').optional(),
+  status: z.enum(['DRAFT', 'SENT', 'VIEWED', 'ACCEPTED', 'REJECTED', 'EXPIRED']).optional(),
+  terms: z.string().optional(),
+  notes: z.string().optional(),
+  items: z.array(z.object({
+    id: z.string().optional(),
+    description: z.string().min(2, 'Descrição do item é obrigatória'),
+    quantity: z.number().int().positive('Quantidade deve ser positiva'),
+    unitPrice: z.number().positive('Preço unitário deve ser positivo'),
+    category: z.string().optional()
+  })).optional()
+})
+
+// GET - Buscar orçamento específico
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -11,186 +34,324 @@ export async function GET(
     const session = await getServerSession(authOptions)
     
     if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { message: 'Acesso negado' },
+        { status: 403 }
+      )
     }
 
-    const quote = await prisma.quote.findUnique({
-      where: { id: params.id },
-      include: {
-        items: true,
-        company: {
-          select: {
-            id: true,
-            name: true,
-            logo: true,
-            verified: true,
-            phone: true,
-            email: true,
-            website: true,
-          }
+    // Verificar se é uma empresa ou o cliente que está acessando
+    if (session.user.role === 'COMPANY') {
+      // Busca o perfil da empresa
+      const companyProfile = await db.companyProfile.findUnique({
+        where: { userId: session.user.id }
+      })
+
+      if (!companyProfile) {
+        return NextResponse.json(
+          { message: 'Perfil da empresa não encontrado' },
+          { status: 404 }
+        )
+      }
+
+      // Buscar orçamento da empresa
+      const quote = await db.quote.findFirst({
+        where: {
+          id: params.id,
+          companyId: companyProfile.id
         },
-        lead: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            projectType: true,
-            location: true,
-          }
-        },
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        include: {
+          items: true,
+          lead: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              location: true,
+              projectType: true,
+              budget: true,
+              message: true
+            }
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true
+            }
           }
         }
-      }
-    })
-
-    if (!quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
-    }
-
-    // Check permissions
-    const hasAccess = 
-      (session.user.role === 'COMPANY' && quote.company.id === session.user.id) ||
-      (session.user.role === 'CUSTOMER' && quote.userId === session.user.id) ||
-      session.user.role === 'ADMIN'
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    // Mark as viewed if customer is viewing
-    if (session.user.role === 'CUSTOMER' && quote.status === 'SENT') {
-      await prisma.quote.update({
-        where: { id: params.id },
-        data: { status: 'VIEWED' }
       })
+
+      if (!quote) {
+        return NextResponse.json(
+          { message: 'Orçamento não encontrado' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json({ data: quote })
+
+    } else if (session.user.role === 'CUSTOMER') {
+      // Cliente pode ver seus próprios orçamentos
+      const quote = await db.quote.findFirst({
+        where: {
+          id: params.id,
+          userId: session.user.id
+        },
+        include: {
+          items: true,
+          company: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              logo: true,
+              phone: true,
+              email: true,
+              website: true,
+              rating: true,
+              reviewCount: true
+            }
+          }
+        }
+      })
+
+      if (!quote) {
+        return NextResponse.json(
+          { message: 'Orçamento não encontrado' },
+          { status: 404 }
+        )
+      }
+
+      // Marcar como visualizado se ainda não foi
+      if (quote.status === 'SENT') {
+        await db.quote.update({
+          where: { id: params.id },
+          data: { status: 'VIEWED' }
+        })
+      }
+
+      return NextResponse.json({ data: quote })
     }
 
-    return NextResponse.json(quote)
+    return NextResponse.json(
+      { message: 'Acesso negado' },
+      { status: 403 }
+    )
 
   } catch (error) {
-    console.error('Error fetching quote:', error)
+    console.error('Quote GET error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { message: 'Erro interno do servidor' },
       { status: 500 }
     )
   }
 }
 
-export async function PATCH(
+// PUT - Atualizar orçamento
+export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!session?.user || session.user.role !== 'COMPANY') {
+      return NextResponse.json(
+        { message: 'Acesso negado' },
+        { status: 403 }
+      )
     }
 
-    const { status, title, description, items, validUntil, terms, notes } = await request.json()
+    const body = await request.json()
+    
+    // Validar dados
+    const validatedData = updateQuoteSchema.parse(body)
 
-    const quote = await prisma.quote.findUnique({
-      where: { id: params.id },
-      include: { company: true }
+    // Busca o perfil da empresa
+    const companyProfile = await db.companyProfile.findUnique({
+      where: { userId: session.user.id }
     })
 
-    if (!quote) {
-      return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
+    if (!companyProfile) {
+      return NextResponse.json(
+        { message: 'Perfil da empresa não encontrado' },
+        { status: 404 }
+      )
     }
 
-    // Check permissions for updates
-    const canUpdate = 
-      (session.user.role === 'COMPANY' && quote.company.userId === session.user.id) ||
-      (session.user.role === 'CUSTOMER' && quote.userId === session.user.id && status) ||
-      session.user.role === 'ADMIN'
-
-    if (!canUpdate) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    let updateData: any = {}
-
-    // Customer can only update status (accept/reject)
-    if (session.user.role === 'CUSTOMER') {
-      if (status && ['ACCEPTED', 'REJECTED'].includes(status)) {
-        updateData.status = status
-        
-        // Create notification for company
-        await prisma.notification.create({
-          data: {
-            title: status === 'ACCEPTED' ? 'Cotação aceita!' : 'Cotação rejeitada',
-            message: `${quote.user?.name || 'Cliente'} ${status === 'ACCEPTED' ? 'aceitou' : 'rejeitou'} sua cotação: ${quote.title}`,
-            type: status === 'ACCEPTED' ? 'QUOTE_ACCEPTED' : 'QUOTE_REJECTED',
-            userId: quote.company.userId,
-            data: {
-              quoteId: quote.id,
-              customerName: quote.user?.name,
-            }
-          }
-        })
+    // Verificar se o orçamento pertence à empresa
+    const existingQuote = await db.quote.findFirst({
+      where: {
+        id: params.id,
+        companyId: companyProfile.id
+      },
+      include: {
+        items: true
       }
-    } else {
-      // Company can update all fields
-      if (title) updateData.title = title
-      if (description !== undefined) updateData.description = description
-      if (validUntil) updateData.validUntil = new Date(validUntil)
-      if (terms !== undefined) updateData.terms = terms
-      if (notes !== undefined) updateData.notes = notes
-      if (status) updateData.status = status
+    })
 
-      // Update items if provided
-      if (items) {
-        const totalValue = items.reduce((sum: number, item: any) => {
-          return sum + (item.quantity * item.unitPrice)
-        }, 0)
-        
-        updateData.totalValue = totalValue
+    if (!existingQuote) {
+      return NextResponse.json(
+        { message: 'Orçamento não encontrado' },
+        { status: 404 }
+      )
+    }
 
-        // Delete existing items and create new ones
-        await prisma.quoteItem.deleteMany({
+    // Preparar dados para atualização
+    const updateData: any = {
+      updatedAt: new Date()
+    }
+
+    if (validatedData.title !== undefined) updateData.title = validatedData.title
+    if (validatedData.description !== undefined) updateData.description = validatedData.description
+    if (validatedData.totalValue !== undefined) updateData.totalValue = validatedData.totalValue
+    if (validatedData.validUntil !== undefined) updateData.validUntil = new Date(validatedData.validUntil)
+    if (validatedData.status !== undefined) updateData.status = validatedData.status
+    if (validatedData.terms !== undefined) updateData.terms = validatedData.terms
+    if (validatedData.notes !== undefined) updateData.notes = validatedData.notes
+
+    // Atualizar orçamento em transação se houver itens
+    const updatedQuote = await db.$transaction(async (tx) => {
+      // Atualizar orçamento
+      const quote = await tx.quote.update({
+        where: { id: params.id },
+        data: updateData
+      })
+
+      // Atualizar itens se fornecidos
+      if (validatedData.items) {
+        // Remover itens existentes
+        await tx.quoteItem.deleteMany({
           where: { quoteId: params.id }
         })
 
-        updateData.items = {
-          create: items.map((item: any) => ({
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            totalPrice: item.quantity * item.unitPrice,
-            category: item.category,
-          }))
-        }
-      }
-    }
+        // Criar novos itens
+        const itemsWithTotals = validatedData.items.map(item => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.quantity * item.unitPrice,
+          category: item.category,
+          quoteId: params.id
+        }))
 
-    const updatedQuote = await prisma.quote.update({
+        await tx.quoteItem.createMany({
+          data: itemsWithTotals
+        })
+      }
+
+      return quote
+    })
+
+    // Buscar orçamento atualizado com itens
+    const finalQuote = await db.quote.findUnique({
       where: { id: params.id },
-      data: updateData,
       include: {
         items: true,
-        company: {
+        lead: {
           select: {
             id: true,
             name: true,
-            logo: true,
-            verified: true,
+            email: true,
+            projectType: true
           }
         }
       }
     })
 
-    return NextResponse.json(updatedQuote)
+    return NextResponse.json({
+      message: 'Orçamento atualizado com sucesso',
+      data: finalQuote
+    })
 
   } catch (error) {
-    console.error('Error updating quote:', error)
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { 
+          message: 'Dados inválidos',
+          errors: error.errors.map(e => ({
+            field: e.path.join('.'),
+            message: e.message
+          }))
+        },
+        { status: 400 }
+      )
+    }
+
+    console.error('Quote PUT error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { message: 'Erro interno do servidor' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE - Excluir orçamento
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session?.user || session.user.role !== 'COMPANY') {
+      return NextResponse.json(
+        { message: 'Acesso negado' },
+        { status: 403 }
+      )
+    }
+
+    // Busca o perfil da empresa
+    const companyProfile = await db.companyProfile.findUnique({
+      where: { userId: session.user.id }
+    })
+
+    if (!companyProfile) {
+      return NextResponse.json(
+        { message: 'Perfil da empresa não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Verificar se o orçamento pertence à empresa
+    const existingQuote = await db.quote.findFirst({
+      where: {
+        id: params.id,
+        companyId: companyProfile.id
+      }
+    })
+
+    if (!existingQuote) {
+      return NextResponse.json(
+        { message: 'Orçamento não encontrado' },
+        { status: 404 }
+      )
+    }
+
+    // Não permitir exclusão de orçamentos já enviados
+    if (existingQuote.status !== 'DRAFT') {
+      return NextResponse.json(
+        { message: 'Não é possível excluir orçamentos já enviados' },
+        { status: 400 }
+      )
+    }
+
+    // Excluir orçamento (cascade vai excluir itens relacionados)
+    await db.quote.delete({
+      where: { id: params.id }
+    })
+
+    return NextResponse.json({
+      message: 'Orçamento excluído com sucesso'
+    })
+
+  } catch (error) {
+    console.error('Quote DELETE error:', error)
+    return NextResponse.json(
+      { message: 'Erro interno do servidor' },
       { status: 500 }
     )
   }

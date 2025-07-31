@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    output: 'standalone',
     images: {
         domains: ['localhost', 'uploadthing.com'],
         formats: ['image/webp', 'image/avif'],

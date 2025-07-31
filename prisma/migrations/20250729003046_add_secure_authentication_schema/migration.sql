@@ -139,7 +139,7 @@ CREATE TABLE "products" (
     "category" "ProductCategory" NOT NULL,
     "brand" TEXT,
     "model" TEXT,
-    "specifications" JSONB,
+    "specifications" TEXT,
     "status" "ModerationStatus" NOT NULL DEFAULT 'PENDING',
     "moderatedAt" TIMESTAMP(3),
     "moderatedBy" TEXT,
