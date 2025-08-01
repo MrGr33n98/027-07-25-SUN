@@ -14,9 +14,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const type = searchParams.get('type') || 'all'
 
-    let pendingProducts = []
-    let pendingProjects = []
-    let pendingReviews = []
+    let pendingProducts: any[] = []
+    let pendingProjects: any[] = []
+    let pendingReviews: any[] = []
 
     if (type === 'all' || type === 'products') {
       pendingProducts = await prisma.product.findMany({

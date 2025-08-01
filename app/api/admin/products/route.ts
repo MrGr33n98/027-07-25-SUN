@@ -29,19 +29,18 @@ export async function GET(request: NextRequest) {
       prisma.product.findMany({
         where,
         include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
+          company: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                }
+              }
             }
           },
-          _count: {
-            select: {
-              reviews: true,
-              leads: true,
-            }
-          }
+          _count: true
         },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,

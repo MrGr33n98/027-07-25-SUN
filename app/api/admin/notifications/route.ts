@@ -102,8 +102,7 @@ export async function POST(request: NextRequest) {
             title,
             message,
             type,
-            userId,
-            status: 'UNREAD'
+            userId
           }
         })
         notifications.push(notification)
@@ -120,28 +119,27 @@ export async function POST(request: NextRequest) {
             title,
             message,
             type,
-            userId: user.id,
-            status: 'UNREAD'
+            userId: user.id
           }
         })
         notifications.push(notification)
       }
     }
 
-    // Log admin action
-    await prisma.adminLog.create({
-      data: {
-        adminId: session.user.id,
-        action: 'NOTIFICATION_SEND',
-        details: {
-          title,
-          type,
-          targetCount: notifications.length
-        }
-      }
-    }).catch(() => {
-      // Log creation is optional
-    })
+    // Log admin action (commented out as adminLog table doesn't exist)
+    // await prisma.adminLog.create({
+    //   data: {
+    //     adminId: session.user.id,
+    //     action: 'NOTIFICATION_SEND',
+    //     details: {
+    //       title,
+    //       type,
+    //       targetCount: notifications.length
+    //     }
+    //   }
+    // }).catch(() => {
+    //   // Log creation is optional
+    // })
 
     return NextResponse.json({
       success: true,

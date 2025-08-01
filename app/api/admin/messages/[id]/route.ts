@@ -115,7 +115,7 @@ export async function PATCH(
           data: {
             title,
             message: messageText,
-            type,
+            type: type as any,
             userId: message.sender.id,
             data: {
               messageId: message.id,

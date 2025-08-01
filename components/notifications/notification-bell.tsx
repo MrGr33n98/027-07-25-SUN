@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuHeader,
+  DropdownMenuLabel,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -140,7 +140,7 @@ export function NotificationBell() {
       </DropdownMenuTrigger>
       
       <DropdownMenuContent align="end" className="w-80">
-        <DropdownMenuHeader className="flex items-center justify-between">
+        <DropdownMenuLabel className="flex items-center justify-between">
           <span className="font-semibold">Notificações</span>
           {unreadCount > 0 && (
             <Button
@@ -154,7 +154,7 @@ export function NotificationBell() {
               Marcar todas como lidas
             </Button>
           )}
-        </DropdownMenuHeader>
+        </DropdownMenuLabel>
         
         <DropdownMenuSeparator />
         

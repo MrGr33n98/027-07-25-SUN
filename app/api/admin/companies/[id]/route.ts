@@ -68,7 +68,7 @@ export async function PATCH(
         data: {
           title,
           message,
-          type,
+          type: type as any,
           userId: company.user.id,
           data: {
             companyId: company.id,
@@ -130,7 +130,6 @@ export async function DELETE(
       await prisma.companyProfile.update({
         where: { id: params.id },
         data: { 
-          status: 'SUSPENDED',
           name: `[Empresa Removida] ${companyWithDeps.name}`,
         }
       })

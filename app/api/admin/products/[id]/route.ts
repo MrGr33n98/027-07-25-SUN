@@ -26,11 +26,15 @@ export async function PUT(
       where: { id: productId },
       data: updateData,
       include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+        company: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              }
+            }
           }
         }
       }
@@ -39,7 +43,7 @@ export async function PUT(
     // Create notification for product owner
     await prisma.notification.create({
       data: {
-        userId: product.userId,
+        userId: product.company.user.id,
         type: status === 'APPROVED' ? 'PRODUCT_APPROVED' : 'PRODUCT_REJECTED',
         title: status === 'APPROVED' ? 'Produto Aprovado' : 'Produto Rejeitado',
         message: status === 'APPROVED' 
