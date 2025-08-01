@@ -98,14 +98,17 @@ solar-connect-nextjs/
 - [ ] Sistema de produtos
 - [ ] Formulários de contato
 
-### 📋 Próximos Passos
-- [ ] Implementar NextAuth.js
-- [ ] Criar páginas de empresa individuais
-- [ ] Adicionar sistema de cadastro
-- [ ] Implementar dashboard
-- [ ] Adicionar testes
-- [ ] Otimizações de SEO
-- [ ] Deploy na Vercel
+### ✅ Funcionalidades Completas
+- [x] Sistema de autenticação completo (NextAuth.js)
+- [x] Páginas de empresa individuais
+- [x] Sistema de cadastro e login
+- [x] Dashboard funcional
+- [x] Sistema de leads e orçamentos
+- [x] Upload de imagens (UploadThing)
+- [x] Sistema de email (Resend)
+- [x] Importação/exportação CSV
+- [x] Testes automatizados (Jest + Testing Library)
+- [x] Configuração de deploy (Docker + Vercel)
 
 ## 🔧 Scripts Disponíveis
 
@@ -148,11 +151,34 @@ npm run db:generate  # Gerar cliente Prisma
 
 ## 🚀 Deploy
 
-O projeto está configurado para deploy na Vercel:
+O projeto está configurado para múltiplas opções de deploy:
 
-1. Conecte seu repositório na Vercel
-2. Configure as variáveis de ambiente
-3. Deploy automático a cada push
+### Opção 1: Vercel (Recomendado para MVP)
+```bash
+# 1. Conecte seu repositório na Vercel
+# 2. Configure as variáveis de ambiente
+# 3. Deploy automático a cada push
+```
+
+### Opção 2: Docker (Produção)
+```bash
+# Configure ambiente de produção
+cp .env.example .env.production
+
+# Execute o script de deploy
+./scripts/deploy.sh  # Linux/Mac
+scripts\deploy.bat   # Windows
+```
+
+### Opção 3: Manual
+```bash
+npm run build
+npm start
+```
+
+📖 **Documentação Completa**: Veja [DEPLOY.md](./DEPLOY.md) para instruções detalhadas
+
+📋 **Checklist de Produção**: Veja [PRODUCTION_CHECKLIST.md](./PRODUCTION_CHECKLIST.md)
 
 ## 📝 Licença
 
