@@ -131,20 +131,20 @@ export async function DELETE(
       }
     })
 
-    // Log admin action
-    await prisma.adminLog.create({
-      data: {
-        adminId: session.user.id,
-        action: 'USER_DELETE',
-        targetId: id,
-        details: {
-          targetType: 'USER',
-          originalEmail: existingUser.email
-        }
-      }
-    }).catch(() => {
-      // Log creation is optional
-    })
+    // Log admin action (adminLog model not implemented)
+    // await prisma.adminLog.create({
+    //   data: {
+    //     adminId: session.user.id,
+    //     action: 'USER_DELETE',
+    //     targetId: id,
+    //     details: {
+    //       targetType: 'USER',
+    //       originalEmail: existingUser.email
+    //     }
+    //   }
+    // }).catch(() => {
+    //   // Log creation is optional
+    // })
 
     return NextResponse.json({ success: true })
 

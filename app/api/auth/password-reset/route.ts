@@ -8,8 +8,9 @@ const passwordResetRequestSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
 });
 
-async function passwordResetHandler(req: NextRequest): Promise<NextResponse> {
-  const body = await req.json();
+async function passwordResetHandler(req: Request): Promise<NextResponse> {
+  const nextReq = req as NextRequest;
+  const body = await nextReq.json();
   const parsed = passwordResetRequestSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -18,7 +19,7 @@ async function passwordResetHandler(req: NextRequest): Promise<NextResponse> {
   }
 
   const { email } = parsed.data;
-  const result = await authenticationService.requestPasswordReset(email, req);
+  const result = await authenticationService.requestPasswordReset(email, nextReq);
 
   if (!result.success && result.error) {
     if (result.error.includes('Too many')) {

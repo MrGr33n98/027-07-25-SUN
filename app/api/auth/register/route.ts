@@ -15,13 +15,14 @@ const registerSchema = z.object({
   path: ["confirmPassword"],
 });
 
-async function registerHandler(req: NextRequest): Promise<NextResponse> {
-  const ipAddress = req.headers.get('x-forwarded-for')?.split(',')[0] || 
-                   req.headers.get('x-real-ip') || 
+async function registerHandler(req: Request): Promise<NextResponse> {
+  const nextReq = req as NextRequest;
+  const ipAddress = nextReq.headers.get('x-forwarded-for')?.split(',')[0] ||
+                   nextReq.headers.get('x-real-ip') ||
                    'unknown';
-  const userAgent = req.headers.get('user-agent') || 'unknown';
+  const userAgent = nextReq.headers.get('user-agent') || 'unknown';
 
-  const body = await req.json();
+  const body = await nextReq.json();
   const parsed = registerSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -29,7 +30,7 @@ async function registerHandler(req: NextRequest): Promise<NextResponse> {
     throw AuthErrorHandler.createValidationError(errors);
   }
 
-  const result = await authenticationService.register(parsed.data, req);
+  const result = await authenticationService.register(parsed.data, nextReq);
 
   if (!result.success) {
     if (result.error?.includes('Too many')) {

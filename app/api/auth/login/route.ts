@@ -8,8 +8,9 @@ const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
-async function loginHandler(req: NextRequest): Promise<NextResponse> {
-  const body = await req.json();
+async function loginHandler(req: Request): Promise<NextResponse> {
+  const nextReq = req as NextRequest;
+  const body = await nextReq.json();
   const parsed = loginSchema.safeParse(body);
 
   if (!parsed.success) {
@@ -17,7 +18,7 @@ async function loginHandler(req: NextRequest): Promise<NextResponse> {
     throw AuthErrorHandler.createValidationError(errors);
   }
 
-  const result = await authenticationService.login(parsed.data, req);
+  const result = await authenticationService.login(parsed.data, nextReq);
 
   if (!result.success) {
     // Handle rate limiting
