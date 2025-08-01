@@ -133,6 +133,7 @@ export interface User {
   email: string
   image?: string
   role: UserRole
+  status: UserStatus
   createdAt: Date
   updatedAt: Date
 }
@@ -141,6 +142,12 @@ export enum UserRole {
   CUSTOMER = 'customer',
   COMPANY = 'company',
   ADMIN = 'admin',
+}
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  PENDING = 'PENDING',
 }
 
 export interface CompanyProfile extends Company {
