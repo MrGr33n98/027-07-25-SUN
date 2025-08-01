@@ -73,7 +73,8 @@ describe('QuoteRequestForm', () => {
     await user.type(screen.getByLabelText(/localização/i), 'São Paulo, SP')
     
     // Select project type
-    await user.click(screen.getByRole('combobox'))
+    const projectTypeCombobox = screen.getAllByRole('combobox')[0]
+    await user.click(projectTypeCombobox)
     await user.click(screen.getByText('Residencial'))
     
     await user.type(screen.getByLabelText(/mensagem/i), 'Gostaria de instalar painéis solares em minha casa')
@@ -116,7 +117,8 @@ describe('QuoteRequestForm', () => {
     await user.type(screen.getByLabelText(/email/i), 'joao@example.com')
     await user.type(screen.getByLabelText(/telefone/i), '11999999999')
     await user.type(screen.getByLabelText(/localização/i), 'São Paulo, SP')
-    await user.click(screen.getByRole('combobox'))
+    const projectTypeCombobox = screen.getAllByRole('combobox')[0]
+    await user.click(projectTypeCombobox)
     await user.click(screen.getByText('Residencial'))
     await user.type(screen.getByLabelText(/mensagem/i), 'Test message')
     
@@ -143,7 +145,8 @@ describe('QuoteRequestForm', () => {
     await user.type(screen.getByLabelText(/email/i), 'joao@example.com')
     await user.type(screen.getByLabelText(/telefone/i), '11999999999')
     await user.type(screen.getByLabelText(/localização/i), 'São Paulo, SP')
-    await user.click(screen.getByRole('combobox'))
+    const projectTypeCombobox = screen.getAllByRole('combobox')[0]
+    await user.click(projectTypeCombobox)
     await user.click(screen.getByText('Residencial'))
     await user.type(screen.getByLabelText(/mensagem/i), 'Test message')
     
@@ -172,7 +175,8 @@ describe('QuoteRequestForm', () => {
     await user.type(screen.getByLabelText(/email/i), 'joao@example.com')
     await user.type(screen.getByLabelText(/telefone/i), '11999999999')
     await user.type(screen.getByLabelText(/localização/i), 'São Paulo, SP')
-    await user.click(screen.getByRole('combobox'))
+    const projectTypeCombobox = screen.getAllByRole('combobox')[0]
+    await user.click(projectTypeCombobox)
     await user.click(screen.getByText('Residencial'))
     await user.type(screen.getByLabelText(/mensagem/i), 'Test message')
 

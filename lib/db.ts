@@ -13,7 +13,7 @@ const connectionPoolConfig = {
     },
   },
   // Logging configuration for performance monitoring
-  log: process.env.NODE_ENV === 'development' 
+  log: process.env.NODE_ENV === 'development'
     ? ['query', 'info', 'warn', 'error'] as const
     : ['warn', 'error'] as const,
   // Error formatting for better debugging

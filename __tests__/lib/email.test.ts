@@ -104,7 +104,7 @@ describe('Email Templates', () => {
       expect(result).toContain('Maria Santos')
       expect(result).toContain('EcoSolar')
       expect(result).toContain('Sistema Solar 5kWp')
-      expect(result).toContain('R$ 25.000,00')
+      expect(result).toMatch(/R\$\s*25\.000,00/)
       expect(result).toContain('Painel Solar 330W')
       expect(result).toContain('Inversor 5kW')
       expect(result).toContain('Visualizar Orçamento Completo')
@@ -113,9 +113,9 @@ describe('Email Templates', () => {
     it('should format currency correctly', () => {
       const result = createQuoteEmailTemplate(mockQuoteData)
 
-      expect(result).toContain('R$ 800,00') // Unit price
-      expect(result).toContain('R$ 12.000,00') // Item total
-      expect(result).toContain('R$ 25.000,00') // Grand total
+      expect(result).toMatch(/R\$\s*800,00/) // Unit price
+      expect(result).toMatch(/R\$\s*12\.000,00/) // Item total
+      expect(result).toMatch(/R\$\s*25\.000,00/) // Grand total
     })
 
     it('should include terms when provided', () => {

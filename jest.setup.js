@@ -41,7 +41,7 @@ jest.mock('resend', () => ({
 }))
 
 // Mock Prisma
-jest.mock('@/lib/db', () => ({
+jest.mock('./lib/db', () => ({
     db: {
         user: {
             findUnique: jest.fn(),
@@ -80,7 +80,7 @@ jest.mock('@/lib/db', () => ({
 }))
 
 // Mock uploadthing
-jest.mock('@/lib/uploadthing', () => ({
+jest.mock('./lib/uploadthing', () => ({
     ourFileRouter: {},
 }))
 
@@ -92,6 +92,81 @@ process.env.RESEND_API_KEY = 'test-api-key'
 
 // Global test utilities
 global.fetch = jest.fn()
+
+// Mock global Request for Next.js
+global.Request = class MockRequest {
+    constructor(url, options = {}) {
+        this._url = url
+        this.method = options.method || 'GET'
+        this.headers = new Map(Object.entries(options.headers || {}))
+        this._body = options.body
+    }
+
+    get url() {
+        return this._url
+    }
+
+    async json() {
+        return JSON.parse(this._body || '{}')
+    }
+
+    async text() {
+        return this._body || ''
+    }
+}
+
+global.Response = class MockResponse {
+    constructor(body, options = {}) {
+        this.body = body
+        this.status = options.status || 200
+        this.headers = new Map(Object.entries(options.headers || {}))
+    }
+
+    static json(data, options = {}) {
+        return new MockResponse(JSON.stringify(data), {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        })
+    }
+
+    async json() {
+        return JSON.parse(this.body)
+    }
+}
+
+// Mock NextRequest for API routes
+jest.mock('next/server', () => ({
+    NextRequest: class MockNextRequest {
+        constructor(url, options = {}) {
+            this._url = url
+            this.method = options.method || 'GET'
+            this.headers = new Map(Object.entries(options.headers || {}))
+            this._body = options.body
+        }
+
+        get url() {
+            return this._url
+        }
+
+        async json() {
+            return JSON.parse(this._body || '{}')
+        }
+
+        async text() {
+            return this._body || ''
+        }
+    },
+    NextResponse: {
+        json: (data, options = {}) => ({
+            json: async () => data,
+            status: options.status || 200,
+            headers: new Map(Object.entries(options.headers || {}))
+        })
+    }
+}))
 
 // Clean up after each test
 afterEach(() => {

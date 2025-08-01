@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
-import { POST, GET } from '@/app/api/leads/route'
-import { db } from '@/lib/db'
+import { POST, GET } from '../../app/api/leads/route'
+import { db } from '../../lib/db'
 
 // Mock the database
-jest.mock('@/lib/db')
+jest.mock('../../lib/db')
 const mockDb = db as jest.Mocked<typeof db>
 
 // Mock next-auth
@@ -11,8 +11,13 @@ jest.mock('next-auth', () => ({
   getServerSession: jest.fn()
 }))
 
+// Mock auth config
+jest.mock('../../lib/auth', () => ({
+  authOptions: {}
+}))
+
 // Mock email functions
-jest.mock('@/lib/email', () => ({
+jest.mock('../../lib/email', () => ({
   sendEmail: jest.fn().mockResolvedValue({ success: true }),
   createNewLeadEmailTemplate: jest.fn().mockReturnValue('<html>Mock email</html>'),
   createLeadConfirmationEmailTemplate: jest.fn().mockReturnValue('<html>Mock confirmation</html>')
@@ -35,13 +40,13 @@ describe('/api/leads', () => {
       projectType: 'Residencial',
       budget: 'R$ 25.000 - R$ 50.000',
       message: 'Gostaria de instalar painéis solares',
-      companyId: 'comp-123'
+      companyId: 'clp1234567890123456789012'
     }
 
     it('should create lead with valid data', async () => {
       // Mock company exists
       mockDb.companyProfile.findUnique.mockResolvedValue({
-        id: 'comp-123',
+        id: 'clp1234567890123456789012',
         name: 'Solar Tech',
         userId: 'user-123',
         user: {
@@ -64,6 +69,9 @@ describe('/api/leads', () => {
 
       const request = new NextRequest('http://localhost:3001/api/leads', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(validLeadData)
       })
 
@@ -81,7 +89,7 @@ describe('/api/leads', () => {
           projectType: validLeadData.projectType,
           budget: validLeadData.budget,
           message: validLeadData.message,
-          companyId: validLeadData.companyId,
+          companyId: 'clp1234567890123456789012',
           status: 'NEW',
           source: 'website'
         })
@@ -93,6 +101,9 @@ describe('/api/leads', () => {
 
       const request = new NextRequest('http://localhost:3001/api/leads', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(validLeadData)
       })
 
@@ -111,11 +122,14 @@ describe('/api/leads', () => {
         location: '',
         projectType: '',
         message: 'short', // Too short
-        companyId: 'comp-123'
+        companyId: 'clp1234567890123456789012'
       }
 
       const request = new NextRequest('http://localhost:3001/api/leads', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify(invalidData)
       })
 
@@ -144,7 +158,7 @@ describe('/api/leads', () => {
 
     it('should list leads for authenticated company', async () => {
       mockDb.companyProfile.findUnique.mockResolvedValue({
-        id: 'comp-123',
+        id: 'clp1234567890123456789012',
         userId: 'user-123'
       } as any)
 
@@ -154,7 +168,7 @@ describe('/api/leads', () => {
           name: 'João Silva',
           email: 'joao@example.com',
           status: 'NEW',
-          createdAt: new Date(),
+          createdAt: new Date().toISOString(),
           quotes: []
         }
       ]
@@ -179,7 +193,7 @@ describe('/api/leads', () => {
 
     it('should filter leads by status', async () => {
       mockDb.companyProfile.findUnique.mockResolvedValue({
-        id: 'comp-123',
+        id: 'clp1234567890123456789012',
         userId: 'user-123'
       } as any)
 
@@ -192,7 +206,7 @@ describe('/api/leads', () => {
 
       expect(mockDb.lead.findMany).toHaveBeenCalledWith({
         where: {
-          companyId: 'comp-123',
+          companyId: 'clp1234567890123456789012',
           status: 'NEW'
         },
         orderBy: { createdAt: 'desc' },
