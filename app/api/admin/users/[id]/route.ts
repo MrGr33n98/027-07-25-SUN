@@ -45,7 +45,7 @@ export async function PATCH(
         updatedAt: new Date()
       },
       include: {
-        companyProfile: {
+        company: {
           select: {
             name: true,
             verified: true
@@ -60,22 +60,27 @@ export async function PATCH(
       }
     })
 
-    // Log admin action
-    await prisma.adminLog.create({
-      data: {
-        adminId: session.user.id,
-        action: 'USER_UPDATE',
-        targetId: id,
-        details: {
-          changes: { status, role },
-          targetType: 'USER'
-        }
-      }
-    }).catch(() => {
-      // Log creation is optional, don't fail the request
-    })
+    const { company, ...userData } = updatedUser
 
-    return NextResponse.json(updatedUser)
+    // Log admin action (commented out as adminLog table doesn't exist)
+    // await prisma.adminLog.create({
+    //   data: {
+    //     adminId: session.user.id,
+    //     action: 'USER_UPDATE',
+    //     targetId: id,
+    //     details: {
+    //       changes: { status, role },
+    //       targetType: 'USER'
+    //     }
+    //   }
+    // }).catch(() => {
+    //   // Log creation is optional, don't fail the request
+    // })
+
+    return NextResponse.json({
+      ...userData,
+      companyProfile: company
+    })
 
   } catch (error) {
     console.error('Error updating user:', error)
