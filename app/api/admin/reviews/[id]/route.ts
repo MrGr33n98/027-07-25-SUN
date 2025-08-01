@@ -38,7 +38,7 @@ export async function PUT(
             email: true,
           }
         },
-        product: {
+        company: {
           select: {
             id: true,
             name: true,
@@ -47,18 +47,20 @@ export async function PUT(
       }
     });
 
-    // Create notification for review author
-    await prisma.notification.create({
-      data: {
-        userId: review.userId,
-        type: status === 'APPROVED' ? 'REVIEW_APPROVED' : 'REVIEW_REJECTED',
-        title: status === 'APPROVED' ? 'Avaliação Aprovada' : 'Avaliação Rejeitada',
-        message: status === 'APPROVED' 
-          ? `Sua avaliação para "${review.product.name}" foi aprovada.`
-          : `Sua avaliação para "${review.product.name}" foi rejeitada. ${moderationNote || ''}`,
-        data: { reviewId: review.id, productId: review.productId }
-      }
-    });
+    // Create notification for review author if associated user exists
+    if (review.userId) {
+      await prisma.notification.create({
+        data: {
+          userId: review.userId,
+          type: 'REVIEW_RECEIVED',
+          title: status === 'APPROVED' ? 'Avaliação Aprovada' : 'Avaliação Rejeitada',
+          message: status === 'APPROVED'
+            ? `Sua avaliação para "${review.company.name}" foi aprovada.`
+            : `Sua avaliação para "${review.company.name}" foi rejeitada. ${moderationNote || ''}`,
+          data: { reviewId: review.id, companyId: review.companyId }
+        }
+      });
+    }
 
     return NextResponse.json(review);
   } catch (error) {

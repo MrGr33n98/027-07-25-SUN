@@ -36,10 +36,11 @@ export async function GET(request: NextRequest) {
               email: true,
             }
           },
-          product: {
+          company: {
             select: {
               id: true,
               name: true,
+              verified: true,
             }
           }
         },
